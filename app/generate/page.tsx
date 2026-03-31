@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -35,11 +36,35 @@ type StoryResult = {
 }
 
 export default function GeneratePage() {
+  return (
+    <Suspense>
+      <GeneratePageContent />
+    </Suspense>
+  )
+}
+
+function GeneratePageContent() {
+  const searchParams = useSearchParams()
+
   // 入力状態
   const [selectedTheme, setSelectedTheme] = useState('')
   const [customTheme, setCustomTheme] = useState('')
   const [length, setLength] = useState(400)
   const [product, setProduct] = useState('')
+
+  // URLクエリパラメータからテーマを引き継ぎ
+  useEffect(() => {
+    const themeParam = searchParams.get('theme')
+    if (themeParam) {
+      const preset = THEME_PRESETS.find(t => t.label === themeParam)
+      if (preset) {
+        setSelectedTheme(preset.id)
+      } else {
+        setSelectedTheme('custom')
+        setCustomTheme(themeParam)
+      }
+    }
+  }, [searchParams])
 
   // 生成結果
   const [results, setResults] = useState<Partial<Record<ToneKey, StoryResult>>>({})
@@ -51,6 +76,17 @@ export default function GeneratePage() {
 
   // アクティブタブ
   const [activeTab, setActiveTab] = useState<ToneKey | ''>('')
+
+  // フィードバック状態
+  const [feedbackOpen, setFeedbackOpen] = useState<Partial<Record<ToneKey, boolean>>>({})
+  const [feedbackRating, setFeedbackRating] = useState<Partial<Record<ToneKey, string>>>({})
+  const [feedbackComment, setFeedbackComment] = useState<Partial<Record<ToneKey, string>>>({})
+  const [feedbackSent, setFeedbackSent] = useState<Partial<Record<ToneKey, boolean>>>({})
+  const [feedbackSending, setFeedbackSending] = useState(false)
+
+  // テンプレート保存状態
+  const [templateSaved, setTemplateSaved] = useState<Partial<Record<ToneKey, boolean>>>({})
+  const [templateSaving, setTemplateSaving] = useState(false)
 
   const theme = selectedTheme === 'custom' ? customTheme :
     THEME_PRESETS.find(t => t.id === selectedTheme)?.label || ''
@@ -91,6 +127,60 @@ export default function GeneratePage() {
     const body = editingBody[tone] || results[tone]?.body
     if (body) {
       await navigator.clipboard.writeText(body)
+    }
+  }
+
+  const handleFeedback = async (tone: ToneKey) => {
+    const result = results[tone]
+    if (!result?.id) return
+
+    setFeedbackSending(true)
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyId: result.id,
+          rating: feedbackRating[tone] || 'good',
+          comment: feedbackComment[tone] || '',
+          originalBody: result.body,
+          editedBody: editingBody[tone] || result.body,
+        }),
+      })
+
+      if (!res.ok) throw new Error('送信失敗')
+      setFeedbackSent(prev => ({ ...prev, [tone]: true }))
+    } catch {
+      setError('フィードバックの送信に失敗しました')
+    } finally {
+      setFeedbackSending(false)
+    }
+  }
+
+  const handleSaveTemplate = async (tone: ToneKey) => {
+    const result = results[tone]
+    if (!result) return
+
+    setTemplateSaving(true)
+    try {
+      const res = await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: result.title,
+          theme,
+          tone: result.tone || TONES[tone].label,
+          body: editingBody[tone] || result.body,
+          hashtags: result.hashtags,
+        }),
+      })
+
+      if (!res.ok) throw new Error('保存失敗')
+      setTemplateSaved(prev => ({ ...prev, [tone]: true }))
+    } catch {
+      setError('テンプレートの保存に失敗しました')
+    } finally {
+      setTemplateSaving(false)
     }
   }
 
@@ -302,7 +392,7 @@ export default function GeneratePage() {
                         </div>
 
                         {/* アクションボタン */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -320,8 +410,89 @@ export default function GeneratePage() {
                           >
                             📄 全体コピー
                           </Button>
+                          {templateSaved[tone] ? (
+                            <span className="text-xs text-green-600 font-medium flex items-center ml-1">✓ テンプレート保存済み</span>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSaveTemplate(tone)}
+                              disabled={templateSaving}
+                            >
+                              {templateSaving ? '保存中...' : '📑 テンプレート保存'}
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
+                    </Card>
+
+                    {/* フィードバック */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-medium text-stone-600">フィードバック</CardTitle>
+                          {feedbackSent[tone] ? (
+                            <span className="text-xs text-green-600 font-medium">送信済み</span>
+                          ) : (
+                            <button
+                              onClick={() => setFeedbackOpen(prev => ({ ...prev, [tone]: !prev[tone] }))}
+                              className="text-xs text-stone-400 hover:text-stone-600"
+                            >
+                              {feedbackOpen[tone] ? '閉じる' : '開く'}
+                            </button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      {feedbackOpen[tone] && !feedbackSent[tone] && (
+                        <CardContent className="space-y-3">
+                          {/* 評価 */}
+                          <div>
+                            <div className="text-xs text-stone-500 mb-1.5">評価</div>
+                            <div className="flex gap-2">
+                              {[
+                                { value: 'good', label: '良い', color: 'border-green-600 bg-green-50 text-green-800' },
+                                { value: 'ok', label: 'まあまあ', color: 'border-amber-500 bg-amber-50 text-amber-800' },
+                                { value: 'redo', label: 'やり直し', color: 'border-red-400 bg-red-50 text-red-700' },
+                              ].map(r => (
+                                <button
+                                  key={r.value}
+                                  onClick={() => setFeedbackRating(prev => ({ ...prev, [tone]: r.value }))}
+                                  className={`flex-1 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                                    feedbackRating[tone] === r.value ? r.color : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                                  }`}
+                                >
+                                  {r.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {/* コメント */}
+                          <div>
+                            <div className="text-xs text-stone-500 mb-1.5">改善メモ（任意）</div>
+                            <Textarea
+                              placeholder="例：もう少しやわらかい表現で、商品名は正式名称を使って"
+                              value={feedbackComment[tone] || ''}
+                              onChange={e => setFeedbackComment(prev => ({ ...prev, [tone]: e.target.value }))}
+                              rows={2}
+                            />
+                          </div>
+                          {/* 編集検出 */}
+                          {editingBody[tone] && editingBody[tone] !== result.body && (
+                            <div className="text-xs text-amber-600 bg-amber-50 rounded p-2">
+                              本文が編集されています。修正内容もフィードバックに含まれます。
+                            </div>
+                          )}
+                          {/* 送信ボタン */}
+                          <Button
+                            onClick={() => handleFeedback(tone)}
+                            disabled={feedbackSending || !feedbackRating[tone]}
+                            size="sm"
+                            className="w-full bg-stone-800 hover:bg-stone-700"
+                          >
+                            {feedbackSending ? '送信中...' : 'フィードバックを送信'}
+                          </Button>
+                        </CardContent>
+                      )}
                     </Card>
 
                     {/* LINEプレビュー */}

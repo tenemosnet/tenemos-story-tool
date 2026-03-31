@@ -43,6 +43,13 @@ export async function buildSystemPrompt(): Promise<string> {
       if (sampleKnowledge.length > 0) {
         knowledgeSection += `\n\n【参考原稿】\n以下は過去の良い配信原稿の例です。トーンや構成を参考にしてください。\n${sampleKnowledge.map(k => k.content).join('\n---\n')}`
       }
+
+      // フィードバックデータを取得（直近20件）
+      const feedbackKnowledge = knowledge.filter(k => k.category === 'feedback')
+      if (feedbackKnowledge.length > 0) {
+        const recentFeedback = feedbackKnowledge.slice(0, 20)
+        knowledgeSection += `\n\n【過去のフィードバック】\n以下はスタッフからの修正指示・改善要望です。同じ傾向の指摘は重点的に反映してください。\n${recentFeedback.map(k => k.content).join('\n---\n')}`
+      }
     }
   } catch (error) {
     console.error('ナレッジ取得エラー:', error)

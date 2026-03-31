@@ -45,7 +45,7 @@ CREATE TABLE products (
 -- 収集済みナレッジ
 CREATE TABLE knowledge_sources (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  source_type TEXT NOT NULL CHECK (source_type IN ('hp', 'blog', 'mail')),
+  source_type TEXT NOT NULL CHECK (source_type IN ('hp', 'blog', 'mail', 'feedback')),
   url TEXT,
   title TEXT,
   content TEXT NOT NULL,
