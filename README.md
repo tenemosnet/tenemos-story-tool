@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# テネモス ストーリーツール v1.0
 
-## Getting Started
+テネモスネットのLINE配信向けストーリー生成ツール。Claude APIでコンテンツを自動生成し、HP・ブログから収集したナレッジとユーザーフィードバックで品質を継続的に向上させる。
 
-First, run the development server:
+## 機能
+
+- **ストーリー生成** — テーマ×トーン（やさしい/専門的/カジュアル）でLINE配信コンテンツを自動生成。季節連動対応
+- **生成履歴** — テーマ・トーン別のリスト表示、全文閲覧、コピー、再生成
+- **テンプレート管理** — 生成結果をテンプレートとして保存・再利用
+- **ナレッジ管理** — HP・ブログ・フィードバックのナレッジと商品データの閲覧・編集・削除
+- **フィードバック学習** — 生成結果への評価・修正がナレッジとして蓄積され、生成品質が向上
+- **ナレッジ収集（CLI）** — HPスクレイピング、ブログ記事収集+トーン分析
+
+## 技術スタック
+
+- Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
+- Claude API (claude-sonnet-4-20250514)
+- Supabase (PostgreSQL)
+- Vercel
+
+## セットアップ
 
 ```bash
+# Node.js 20が必要
+nvm use v20.20.2
+
+# 依存パッケージ
+npm install
+
+# 環境変数（.env.local）
+ANTHROPIC_API_KEY=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+APP_PASSWORD=
+
+# 開発サーバー
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## コマンド
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev           # 開発サーバー（http://localhost:3000）
+npm run build         # ビルド
+npm run ingest:hp     # HPスクレイピング
+npm run ingest:blog   # ブログ収集+トーン分析
+npx vercel --prod     # 本番デプロイ
+```
