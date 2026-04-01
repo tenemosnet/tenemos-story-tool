@@ -61,6 +61,13 @@ function KnowledgeTab() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
+  // 手動追加フォーム
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addTitle, setAddTitle] = useState('')
+  const [addCategory, setAddCategory] = useState('brand')
+  const [addContent, setAddContent] = useState('')
+  const [adding, setAdding] = useState(false)
+
   const fetchItems = async () => {
     setLoading(true)
     try {
@@ -123,6 +130,34 @@ function KnowledgeTab() {
     }
   }
 
+  const handleAdd = async () => {
+    if (!addContent || !addCategory) return
+    setAdding(true)
+    try {
+      const res = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: addTitle || null,
+          content: addContent,
+          category: addCategory,
+        }),
+      })
+      if (res.ok) {
+        const newItem = await res.json()
+        setItems(prev => [newItem, ...prev])
+        setShowAddForm(false)
+        setAddTitle('')
+        setAddContent('')
+        setAddCategory('brand')
+      }
+    } catch {
+      // ignore
+    } finally {
+      setAdding(false)
+    }
+  }
+
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id)
   }
@@ -135,6 +170,79 @@ function KnowledgeTab() {
 
   return (
     <div className="space-y-4">
+      {/* 手動追加ボタン + 案内 */}
+      <div className="flex items-center justify-between">
+        <Button
+          size="sm"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className={showAddForm ? 'bg-stone-600 hover:bg-stone-500' : 'bg-green-700 hover:bg-green-600'}
+        >
+          {showAddForm ? '✕ 閉じる' : '＋ ナレッジを追加'}
+        </Button>
+        <p className="text-xs text-stone-400">
+          大量データの一括登録（HP・ブログ収集）は管理者までご連絡ください
+        </p>
+      </div>
+
+      {/* 手動追加フォーム */}
+      {showAddForm && (
+        <Card className="border-green-200 bg-green-50/30">
+          <CardContent className="pt-5 space-y-3">
+            <div>
+              <label className="text-xs font-medium text-stone-600">カテゴリ</label>
+              <div className="flex gap-2 mt-1">
+                {Object.entries(CATEGORY_LABELS).filter(([key]) => key !== 'feedback').map(([key, { label, color }]) => (
+                  <button
+                    key={key}
+                    onClick={() => setAddCategory(key)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      addCategory === key
+                        ? `${color} border-transparent`
+                        : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-stone-600">タイトル（任意）</label>
+              <input
+                type="text"
+                value={addTitle}
+                onChange={e => setAddTitle(e.target.value)}
+                placeholder="例：2026年春の新商品について"
+                className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-stone-600">本文</label>
+              <Textarea
+                value={addContent}
+                onChange={e => setAddContent(e.target.value)}
+                placeholder="ナレッジとして登録したい情報を入力してください..."
+                rows={5}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
+                キャンセル
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleAdd}
+                disabled={adding || !addContent}
+                className="bg-green-700 hover:bg-green-600"
+              >
+                {adding ? '追加中...' : '追加する'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* フィルター */}
       <div className="flex flex-wrap gap-2">
         <Button
@@ -164,7 +272,7 @@ function KnowledgeTab() {
           <div className="text-4xl mb-3">📚</div>
           <p className="text-stone-500">ナレッジデータがありません</p>
           <p className="text-sm text-stone-400 mt-1">
-            HPスクレイピングやブログ収集を実行すると、ここにデータが表示されます
+            上の「ナレッジを追加」ボタンから手動で登録できます
           </p>
         </div>
       ) : (
@@ -175,7 +283,9 @@ function KnowledgeTab() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     <Badge variant="secondary" className="shrink-0">
-                      {SOURCE_TYPE_LABELS[item.source_type]?.emoji} {SOURCE_TYPE_LABELS[item.source_type]?.label}
+                      {(item.metadata as Record<string, unknown>)?.manual
+                        ? '✏️ 手動追加'
+                        : `${SOURCE_TYPE_LABELS[item.source_type]?.emoji || ''} ${SOURCE_TYPE_LABELS[item.source_type]?.label || item.source_type}`}
                     </Badge>
                     {item.category && CATEGORY_LABELS[item.category] && (
                       <Badge className={`shrink-0 ${CATEGORY_LABELS[item.category].color}`}>

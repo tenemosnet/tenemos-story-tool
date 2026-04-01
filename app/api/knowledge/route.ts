@@ -30,6 +30,36 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// ナレッジ手動追加
+export async function POST(request: NextRequest) {
+  try {
+    const { title, content, category } = await request.json()
+
+    if (!content || !category) {
+      return NextResponse.json({ error: '本文とカテゴリは必須です' }, { status: 400 })
+    }
+
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from('knowledge_sources')
+      .insert({
+        source_type: 'hp',
+        title: title || null,
+        content,
+        category,
+        metadata: { manual: true },
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('ナレッジ追加エラー:', error)
+    return NextResponse.json({ error: '追加に失敗しました' }, { status: 500 })
+  }
+}
+
 // ナレッジ更新
 export async function PATCH(request: NextRequest) {
   try {
