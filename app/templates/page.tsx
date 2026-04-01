@@ -138,6 +138,17 @@ export default function TemplatesPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="border-green-300 text-green-700 hover:bg-green-50"
+                        onClick={() => {
+                          sessionStorage.setItem('referenceBody', template.body)
+                          window.location.href = `/generate?theme=${encodeURIComponent(template.theme)}&tone=${encodeURIComponent(template.tone)}&ref=template`
+                        }}
+                      >
+                        この文体で再生成
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleDelete(template.id)}
                         disabled={deleting === template.id}
                         className="text-red-500 hover:text-red-700 hover:bg-red-50"

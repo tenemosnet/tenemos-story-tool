@@ -213,7 +213,7 @@ export default function StoriesPage() {
                       </div>
                     )}
 
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex flex-wrap gap-2 pt-2">
                       <Button variant="outline" size="sm" onClick={() => handleCopy(selectedStory)}>
                         コピー
                       </Button>
@@ -222,6 +222,17 @@ export default function StoriesPage() {
                           この設定で再生成
                         </Button>
                       </a>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-green-300 text-green-700 hover:bg-green-50"
+                        onClick={() => {
+                          sessionStorage.setItem('referenceBody', selectedStory.body)
+                          window.location.href = `/generate?theme=${encodeURIComponent(selectedStory.theme)}&tone=${encodeURIComponent(selectedStory.tone)}&ref=story`
+                        }}
+                      >
+                        この文体で再生成
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -275,13 +286,24 @@ export default function StoriesPage() {
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={() => handleCopy(selectedStory)}>
                   コピー
                 </Button>
                 <a href={`/generate?theme=${encodeURIComponent(selectedStory.theme)}&tone=${encodeURIComponent(selectedStory.tone)}`}>
                   <Button variant="outline" size="sm">この設定で再生成</Button>
                 </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                  onClick={() => {
+                    sessionStorage.setItem('referenceBody', selectedStory.body)
+                    window.location.href = `/generate?theme=${encodeURIComponent(selectedStory.theme)}&tone=${encodeURIComponent(selectedStory.tone)}&ref=story`
+                  }}
+                >
+                  この文体で再生成
+                </Button>
               </div>
             </div>
           </div>

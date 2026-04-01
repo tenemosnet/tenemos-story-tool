@@ -52,7 +52,10 @@ function GeneratePageContent() {
   const [length, setLength] = useState(400)
   const [product, setProduct] = useState('')
 
-  // URLクエリパラメータからテーマを引き継ぎ
+  // 参考原稿（テンプレート/履歴から引き継ぎ）
+  const [referenceBody, setReferenceBody] = useState<string | null>(null)
+
+  // URLクエリパラメータからテーマ・参考原稿を引き継ぎ
   useEffect(() => {
     const themeParam = searchParams.get('theme')
     if (themeParam) {
@@ -62,6 +65,15 @@ function GeneratePageContent() {
       } else {
         setSelectedTheme('custom')
         setCustomTheme(themeParam)
+      }
+    }
+    // sessionStorageから参考原稿を取得
+    const ref = searchParams.get('ref')
+    if (ref) {
+      const stored = sessionStorage.getItem('referenceBody')
+      if (stored) {
+        setReferenceBody(stored)
+        sessionStorage.removeItem('referenceBody')
       }
     }
   }, [searchParams])
@@ -104,7 +116,7 @@ function GeneratePageContent() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme, length, product, tone }),
+        body: JSON.stringify({ theme, length, product, tone, referenceBody: referenceBody || undefined }),
       })
 
       if (!res.ok) {
@@ -283,6 +295,31 @@ function GeneratePageContent() {
               />
             </CardContent>
           </Card>
+
+          {/* 参考原稿の表示 */}
+          {referenceBody && (
+            <Card className="border-green-200 bg-green-50/30">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-green-700">📝 参考原稿を使用中</span>
+                  <button
+                    onClick={() => setReferenceBody(null)}
+                    className="text-xs text-stone-400 hover:text-stone-600"
+                  >
+                    ✕ 解除
+                  </button>
+                </div>
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  {referenceBody.length > 100
+                    ? referenceBody.slice(0, 100) + '...'
+                    : referenceBody}
+                </p>
+                <p className="text-xs text-green-600 mt-1.5">
+                  この文体・構成を参考にして新しい内容を生成します
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* トーン別生成ボタン */}
           <Card>

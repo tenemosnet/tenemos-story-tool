@@ -6,11 +6,12 @@ import { buildSystemPrompt, buildUserPrompt, TONES, ToneKey } from '@/lib/prompt
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { theme, length, product, tone } = body as {
+    const { theme, length, product, tone, referenceBody } = body as {
       theme: string
       length: number
       product: string
       tone: ToneKey
+      referenceBody?: string
     }
 
     // バリデーション
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
       length: length || 400,
       product: product || '',
       tone: { label: toneConfig.label, instruction: toneConfig.instruction },
+      referenceBody: referenceBody || undefined,
     })
 
     // Claude API呼び出し

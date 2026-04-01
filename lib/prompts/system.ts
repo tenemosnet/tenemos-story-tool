@@ -154,8 +154,20 @@ export function buildUserPrompt(params: {
   length: number
   product: string
   tone: { label: string; instruction: string }
+  referenceBody?: string
 }): string {
   const season = getSeasonInfo()
+
+  let referenceSection = ''
+  if (params.referenceBody) {
+    referenceSection = `
+【参考にする原稿】
+以下は過去に好評だった配信原稿です。この原稿の文体・構成・雰囲気を参考にしつつ、新しいオリジナルの内容を作成してください。丸写しはせず、良いところを活かして新しい切り口で書いてください。
+---
+${params.referenceBody}
+---
+`
+  }
 
   return `
 以下の条件でLINEストーリー配信コンテンツを1つ作成してください。
@@ -166,7 +178,7 @@ export function buildUserPrompt(params: {
 【文字数目安】約${params.length}字
 【強調商品】${params.product || '指定なし'}
 【トーン】${params.tone.label}（${params.tone.instruction}）
-
+${referenceSection}
 ※季節感のあるテーマの場合は、必ず今の時期に合った内容にしてください。
 JSONのみ出力してください。
   `.trim()
