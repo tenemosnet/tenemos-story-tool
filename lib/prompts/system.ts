@@ -120,11 +120,31 @@ export type ToneKey = keyof typeof TONES
 export const THEME_PRESETS = [
   { id: 'nature', label: '自然の仕組み', description: '水の循環、発酵の不思議、空気の力' },
   { id: 'lifestyle', label: '暮らしのヒント', description: 'マナウォーター活用術、酵素水の使い方' },
-  { id: 'seasonal', label: '季節ネタ', description: '季節の養生、冬の乾燥対策' },
+  { id: 'seasonal', label: '季節ネタ', description: '今の季節に合った養生・暮らしの知恵' },
   { id: 'voice', label: 'お客様の声', description: '体験談・使い方アイデアの紹介' },
   { id: 'philosophy', label: 'テネモス哲学', description: '飯島先生の言葉、「わたしたちは持っている」' },
   { id: 'campaign', label: '新商品・キャンペーン', description: '新製品の紹介、期間限定キャンペーン' },
 ] as const
+
+/**
+ * 現在の季節情報を取得
+ */
+function getSeasonInfo(): { date: string; season: string; description: string } {
+  const now = new Date()
+  const month = now.getMonth() + 1
+  const day = now.getDate()
+  const date = `${now.getFullYear()}年${month}月${day}日`
+
+  if (month >= 3 && month <= 5) {
+    return { date, season: '春', description: '花粉の季節、新生活、春の陽気、桜、新緑の芽吹き' }
+  } else if (month >= 6 && month <= 8) {
+    return { date, season: '夏', description: '梅雨、暑さ対策、紫外線、水分補給、夏バテ防止' }
+  } else if (month >= 9 && month <= 11) {
+    return { date, season: '秋', description: '実りの秋、乾燥の始まり、食欲の秋、冷え対策' }
+  } else {
+    return { date, season: '冬', description: '乾燥対策、冷え込み、年末年始、温活、免疫ケア' }
+  }
+}
 
 /**
  * ユーザープロンプトを組み立てる
@@ -135,14 +155,19 @@ export function buildUserPrompt(params: {
   product: string
   tone: { label: string; instruction: string }
 }): string {
+  const season = getSeasonInfo()
+
   return `
 以下の条件でLINEストーリー配信コンテンツを1つ作成してください。
 
+【本日の日付】${season.date}（${season.season}）
+【季節の参考キーワード】${season.description}
 【配信テーマ】${params.theme}
 【文字数目安】約${params.length}字
 【強調商品】${params.product || '指定なし'}
 【トーン】${params.tone.label}（${params.tone.instruction}）
 
+※季節感のあるテーマの場合は、必ず今の時期に合った内容にしてください。
 JSONのみ出力してください。
   `.trim()
 }

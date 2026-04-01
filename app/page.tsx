@@ -29,7 +29,7 @@ export default async function Home() {
       <header className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <div>
-            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール</h1>
+            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v1.0</span></h1>
             <p className="text-sm text-stone-500 mt-0.5">LINE配信コンテンツ生成</p>
           </div>
         </div>
@@ -37,7 +37,7 @@ export default async function Home() {
 
       <main className="max-w-5xl mx-auto p-6 space-y-6">
         {/* クイックアクション */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link href="/generate">
             <Card className="hover:shadow-md transition-shadow cursor-pointer border-green-200 bg-green-50/50">
               <CardContent className="pt-6 pb-6">
@@ -57,36 +57,55 @@ export default async function Home() {
               </CardContent>
             </Card>
           </Link>
+
+          <Link href="/knowledge">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-stone-200">
+              <CardContent className="pt-6 pb-6">
+                <div className="text-3xl mb-3">📚</div>
+                <h2 className="text-lg font-bold text-stone-800 mb-1">ナレッジ管理</h2>
+                <p className="text-sm text-stone-500">HP・ブログ・フィードバックのナレッジと商品データの管理</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* ステータス */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-stone-500">生成済みストーリー</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-stone-800">{stats.stories}件</div>
-            </CardContent>
-          </Card>
+          <Link href="/stories">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-stone-500">生成済みストーリー</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-stone-800">{stats.stories}件</div>
+                <p className="text-xs text-stone-400 mt-1">クリックで履歴を表示 →</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-stone-500">テンプレート</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-stone-800">{stats.templates}件</div>
-            </CardContent>
-          </Card>
+          <Link href="/templates">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-stone-500">テンプレート</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-stone-800">{stats.templates}件</div>
+                <p className="text-xs text-stone-400 mt-1">クリックで管理画面へ →</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-stone-500">ナレッジ</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-stone-800">{stats.knowledge}件</div>
-            </CardContent>
-          </Card>
+          <Link href="/knowledge">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-stone-500">ナレッジ</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-stone-800">{stats.knowledge}件</div>
+                <p className="text-xs text-stone-400 mt-1">クリックで管理画面へ →</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* 案内 */}
