@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropic } from '@/lib/claude'
+import { callClaude } from '@/lib/claude'
 import { createServiceClient } from '@/lib/supabase'
 import { buildSystemPrompt, buildUserPrompt, TONES, ToneKey } from '@/lib/prompts/system'
 
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       referenceBody: referenceBody || undefined,
     })
 
-    // Claude API呼び出し
-    const message = await anthropic.messages.create({
+    // Claude API呼び出し（fetch版）
+    const message = await callClaude({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: systemPrompt,
