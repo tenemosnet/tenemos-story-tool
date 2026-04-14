@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
   try {
     const { title, body, type, scheduled_date, stock_idea_id, story_id } = await request.json()
 
-    if (!title?.trim() || !body?.trim() || !type) {
-      return NextResponse.json({ error: 'タイトル・本文・タイプが必要です' }, { status: 400 })
+    if (!title?.trim() || !type) {
+      return NextResponse.json({ error: 'タイトルとタイプが必要です' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       .from('finished_contents')
       .insert({
         title: title.trim(),
-        body: body.trim(),
+        body: body?.trim() || '',
         type,
         scheduled_date: scheduled_date || null,
         stock_idea_id: stock_idea_id || null,

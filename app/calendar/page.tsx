@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, DragEvent } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -21,28 +21,14 @@ type FinishedContent = {
   is_done: boolean
 }
 
-type DayData = {
-  memos: TaskMemo[]
-  contents: FinishedContent[]
-}
-
 function getMonthDays(year: number, month: number) {
   const firstDay = new Date(year, month - 1, 1)
   const lastDay = new Date(year, month, 0)
-  const startWeekday = firstDay.getDay() // 0=日曜
+  const startWeekday = firstDay.getDay()
 
   const days: (number | null)[] = []
-
-  // 前月の空白
-  for (let i = 0; i < startWeekday; i++) {
-    days.push(null)
-  }
-
-  // 当月の日付
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    days.push(d)
-  }
-
+  for (let i = 0; i < startWeekday; i++) days.push(null)
+  for (let d = 1; d <= lastDay.getDate(); d++) days.push(d)
   return days
 }
 
@@ -61,6 +47,10 @@ export default function CalendarPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newMemoContent, setNewMemoContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null)
+  const [editingContent, setEditingContent] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editBody, setEditBody] = useState('')
 
   const monthStr = `${year}-${String(month).padStart(2, '0')}`
   const todayStr = toDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate())
@@ -72,10 +62,8 @@ export default function CalendarPage() {
         fetch(`/api/task-memos?include_done=false`),
         fetch(`/api/finished-contents?month=${monthStr}&include_done=false`),
       ])
-
       if (memosRes.ok) {
         const allMemos: TaskMemo[] = await memosRes.json()
-        // 当月のメモだけフィルター
         setMemos(allMemos.filter(m => m.display_date.startsWith(monthStr)))
       }
       if (contentsRes.ok) {
@@ -88,36 +76,75 @@ export default function CalendarPage() {
     }
   }, [monthStr])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  useEffect(() => { fetchData() }, [fetchData])
 
   const prevMonth = () => {
-    if (month === 1) { setYear(y => y - 1); setMonth(12) }
-    else { setMonth(m => m - 1) }
+    if (month === 1) { setYear(y => y - 1); setMonth(12) } else { setMonth(m => m - 1) }
     setSelectedDate(null)
   }
-
   const nextMonth = () => {
-    if (month === 12) { setYear(y => y + 1); setMonth(1) }
-    else { setMonth(m => m + 1) }
+    if (month === 12) { setYear(y => y + 1); setMonth(1) } else { setMonth(m => m + 1) }
     setSelectedDate(null)
   }
-
   const goToday = () => {
     setYear(today.getFullYear())
     setMonth(today.getMonth() + 1)
     setSelectedDate(todayStr)
   }
 
-  // 日付ごとのデータをまとめる
-  const getDayData = (day: number): DayData => {
+  const getDayData = (day: number) => {
     const dateStr = toDateStr(year, month, day)
     return {
       memos: memos.filter(m => m.display_date === dateStr),
       contents: contents.filter(c => c.scheduled_date === dateStr),
     }
   }
+
+  // ========== ドラッグ＆ドロップ ==========
+
+  const handleDragStart = (e: DragEvent, type: 'line' | 'email') => {
+    e.dataTransfer.setData('delivery-type', type)
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
+  const handleDragOver = (e: DragEvent, dateStr: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setDragOverDate(dateStr)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverDate(null)
+  }
+
+  const handleDrop = async (e: DragEvent, dateStr: string) => {
+    e.preventDefault()
+    setDragOverDate(null)
+    const type = e.dataTransfer.getData('delivery-type') as 'line' | 'email'
+    if (!type) return
+
+    const label = type === 'line' ? 'LINE配信' : 'メルマガ配信'
+    try {
+      const res = await fetch('/api/finished-contents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${label}予定`,
+          body: '',
+          type,
+          scheduled_date: dateStr,
+        }),
+      })
+      if (res.ok) {
+        fetchData()
+        setSelectedDate(dateStr)
+      }
+    } catch (error) {
+      console.error('配信予定登録エラー:', error)
+    }
+  }
+
+  // ========== リマインダー操作 ==========
 
   const handleAddMemo = async () => {
     if (!newMemoContent.trim() || !selectedDate) return
@@ -167,10 +194,61 @@ export default function CalendarPage() {
     }
   }
 
+  // ========== 配信予定操作 ==========
+
+  const handleDeleteContent = async (id: string) => {
+    if (!confirm('この配信予定を削除しますか？')) return
+    try {
+      await fetch('/api/finished-contents', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setEditingContent(null)
+      fetchData()
+    } catch (error) {
+      console.error('削除エラー:', error)
+    }
+  }
+
+  const handleDoneContent = async (id: string) => {
+    try {
+      await fetch('/api/finished-contents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_done: true }),
+      })
+      fetchData()
+    } catch (error) {
+      console.error('完了エラー:', error)
+    }
+  }
+
+  const startEditContent = (c: FinishedContent) => {
+    setEditingContent(c.id)
+    setEditTitle(c.title)
+    setEditBody(c.body)
+  }
+
+  const handleSaveContent = async (id: string) => {
+    try {
+      await fetch('/api/finished-contents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, title: editTitle, body: editBody }),
+      })
+      setEditingContent(null)
+      fetchData()
+    } catch (error) {
+      console.error('更新エラー:', error)
+    }
+  }
+
+  // ========== レンダリング ==========
+
   const days = getMonthDays(year, month)
   const weekdays = ['日', '月', '火', '水', '木', '金', '土']
 
-  // 選択日のデータ
   const selectedDayData = selectedDate
     ? {
         memos: memos.filter(m => m.display_date === selectedDate),
@@ -197,9 +275,7 @@ export default function CalendarPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={prevMonth}>←</Button>
-            <h2 className="text-lg font-bold text-stone-800">
-              {year}年{month}月
-            </h2>
+            <h2 className="text-lg font-bold text-stone-800">{year}年{month}月</h2>
             <Button variant="outline" size="sm" onClick={nextMonth}>→</Button>
           </div>
           <Button variant="outline" size="sm" onClick={goToday}>今日</Button>
@@ -238,17 +314,21 @@ export default function CalendarPage() {
                       const dayData = getDayData(day)
                       const isToday = dateStr === todayStr
                       const isSelected = dateStr === selectedDate
-                      const hasMemos = dayData.memos.length > 0
-                      const hasContents = dayData.contents.length > 0
+                      const isDragOver = dateStr === dragOverDate
                       const weekday = (idx % 7)
+                      const totalItems = dayData.memos.length + dayData.contents.length
 
                       return (
-                        <button
+                        <div
                           key={day}
                           onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                          className={`h-20 border text-left p-1 transition-colors relative
+                          onDragOver={(e) => handleDragOver(e, dateStr)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, dateStr)}
+                          className={`h-20 border text-left p-1 transition-all relative cursor-pointer select-none
                             ${isSelected ? 'border-blue-400 bg-blue-50' : 'border-stone-100 hover:bg-stone-50'}
-                            ${isToday ? 'bg-amber-50/50' : ''}
+                            ${isToday && !isSelected ? 'bg-amber-50/50' : ''}
+                            ${isDragOver ? 'border-2 border-dashed border-green-400 bg-green-50/50 scale-[1.02]' : ''}
                           `}
                         >
                           <span className={`text-xs font-medium inline-block w-5 h-5 text-center leading-5 rounded-full
@@ -260,7 +340,7 @@ export default function CalendarPage() {
 
                           {/* バッジ */}
                           <div className="mt-0.5 space-y-0.5 overflow-hidden">
-                            {dayData.contents.map(c => (
+                            {dayData.contents.slice(0, 2).map(c => (
                               <div
                                 key={c.id}
                                 className={`text-[10px] leading-tight px-1 rounded truncate ${
@@ -269,10 +349,10 @@ export default function CalendarPage() {
                                     : 'bg-purple-100 text-purple-700'
                                 }`}
                               >
-                                {c.type === 'line' ? 'LINE' : 'メール'} {c.title}
+                                {c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
                               </div>
                             ))}
-                            {dayData.memos.map(m => (
+                            {dayData.memos.slice(0, Math.max(0, 2 - dayData.contents.length)).map(m => (
                               <div
                                 key={m.id}
                                 className="text-[10px] leading-tight px-1 rounded bg-amber-100 text-amber-700 truncate"
@@ -282,37 +362,50 @@ export default function CalendarPage() {
                             ))}
                           </div>
 
-                          {/* ドット表示（バッジが入りきらない時用） */}
-                          {(hasMemos || hasContents) && (dayData.memos.length + dayData.contents.length > 2) && (
+                          {totalItems > 2 && (
                             <div className="absolute bottom-0.5 right-1 text-[10px] text-stone-400">
-                              +{dayData.memos.length + dayData.contents.length - 2}
+                              +{totalItems - 2}
                             </div>
                           )}
-                        </button>
+
+                          {/* ドロップヒント */}
+                          {isDragOver && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-green-50/80 rounded pointer-events-none">
+                              <span className="text-xs font-medium text-green-600">ここに配置</span>
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* 凡例 */}
-              <div className="flex gap-4 mt-2 px-2">
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded bg-green-100 border border-green-200" />
-                  <span className="text-xs text-stone-500">LINE配信</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded bg-purple-100 border border-purple-200" />
-                  <span className="text-xs text-stone-500">メール通信</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded bg-amber-100 border border-amber-200" />
-                  <span className="text-xs text-stone-500">リマインダー</span>
+              {/* ドラッグアイコン + 凡例 */}
+              <div className="mt-3 p-3 bg-white rounded-lg border border-stone-200">
+                <p className="text-xs text-stone-400 mb-2">↕ 下のアイコンをカレンダーの日付にドラッグして配信予定を配置</p>
+                <div className="flex gap-3">
+                  <div
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'line')}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-dashed border-green-300 bg-green-50 cursor-grab active:cursor-grabbing hover:border-green-400 hover:bg-green-100 transition-colors select-none"
+                  >
+                    <span className="text-lg">🟢</span>
+                    <span className="text-sm font-medium text-green-700">LINE配信</span>
+                  </div>
+                  <div
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'email')}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 cursor-grab active:cursor-grabbing hover:border-purple-400 hover:bg-purple-100 transition-colors select-none"
+                  >
+                    <span className="text-lg">🟣</span>
+                    <span className="text-sm font-medium text-purple-700">メルマガ配信</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* サイドパネル：選択日の詳細 */}
+            {/* サイドパネル */}
             <div>
               {selectedDate ? (
                 <Card>
@@ -335,16 +428,87 @@ export default function CalendarPage() {
                       <div className="space-y-2">
                         <h4 className="text-xs font-medium text-stone-500">配信予定</h4>
                         {selectedDayData.contents.map(c => (
-                          <div key={c.id} className="p-2 rounded border border-stone-100 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                c.type === 'line' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
-                              }`}>
-                                {c.type === 'line' ? 'LINE' : 'メール'}
-                              </span>
-                              <span className="text-sm font-medium text-stone-700">{c.title}</span>
-                            </div>
-                            <p className="text-xs text-stone-500 line-clamp-3">{c.body}</p>
+                          <div key={c.id} className="p-2 rounded border border-stone-100 space-y-2 group">
+                            {editingContent === c.id ? (
+                              // 編集モード
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                                    c.type === 'line' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {c.type === 'line' ? 'LINE' : 'メール'}
+                                  </span>
+                                </div>
+                                <input
+                                  value={editTitle}
+                                  onChange={(e) => setEditTitle(e.target.value)}
+                                  placeholder="タイトル"
+                                  className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                />
+                                <textarea
+                                  value={editBody}
+                                  onChange={(e) => setEditBody(e.target.value)}
+                                  placeholder="配信内容（あとで入力してもOK）"
+                                  rows={4}
+                                  className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSaveContent(c.id)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                                  >
+                                    保存
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setEditingContent(null)}
+                                    className="text-xs"
+                                  >
+                                    キャンセル
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              // 表示モード
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                                    c.type === 'line' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {c.type === 'line' ? 'LINE' : 'メール'}
+                                  </span>
+                                  <span className="text-sm font-medium text-stone-700 flex-1">{c.title}</span>
+                                </div>
+                                {c.body && (
+                                  <p className="text-xs text-stone-500 whitespace-pre-wrap">{c.body}</p>
+                                )}
+                                {!c.body && (
+                                  <p className="text-xs text-stone-300 italic">内容未設定（クリックで編集）</p>
+                                )}
+                                <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => startEditContent(c)}
+                                    className="text-xs text-blue-500 hover:text-blue-700"
+                                  >
+                                    ✏️ 編集
+                                  </button>
+                                  <button
+                                    onClick={() => handleDoneContent(c.id)}
+                                    className="text-xs text-green-500 hover:text-green-700"
+                                  >
+                                    ✓ 完了
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteContent(c.id)}
+                                    className="text-xs text-red-400 hover:text-red-600"
+                                  >
+                                    ✕ 削除
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -429,6 +593,9 @@ export default function CalendarPage() {
                   <CardContent className="pt-6 text-center">
                     <p className="text-sm text-stone-400">
                       カレンダーの日付をクリックすると<br />詳細が表示されます
+                    </p>
+                    <p className="text-xs text-stone-300 mt-3">
+                      下のアイコンを日付にドラッグ＆ドロップで<br />配信予定を配置できます
                     </p>
                   </CardContent>
                 </Card>
