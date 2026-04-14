@@ -74,3 +74,35 @@ CREATE TABLE ingest_logs (
   error_message TEXT,
   executed_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ネタストック（配信アイデアメモ）
+CREATE TABLE stock_ideas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  content TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'unused' CHECK (status IN ('unused', 'used')),
+  story_id UUID REFERENCES stories(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 仕上がり置き場（加工済み完成コンテンツ）
+CREATE TABLE finished_contents (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('line', 'email')),
+  stock_idea_id UUID REFERENCES stock_ideas(id),
+  story_id UUID REFERENCES stories(id),
+  scheduled_date DATE,
+  is_done BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- タスクメモ（リマインダー）
+CREATE TABLE task_memos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  content TEXT NOT NULL,
+  display_date DATE NOT NULL,
+  is_done BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

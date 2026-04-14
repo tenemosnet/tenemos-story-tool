@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase'
+import StockIdeas from '@/components/stock-ideas'
+import NoticeBoard from '@/components/notice-board'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,27 +31,40 @@ export default async function Home() {
       <header className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <div>
-            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v2.0</span></h1>
+            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v3.1</span></h1>
             <p className="text-sm text-stone-500 mt-0.5">LINE配信コンテンツ生成</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto p-6 space-y-6">
+        {/* お知らせ欄 */}
+        <NoticeBoard />
+
         {/* クイックアクション */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link href="/generate">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer border-green-200 bg-green-50/50">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-green-200 bg-green-50/50 h-full">
               <CardContent className="pt-6 pb-6">
                 <div className="text-3xl mb-3">✍️</div>
-                <h2 className="text-lg font-bold text-stone-800 mb-1">新しいストーリーを生成</h2>
-                <p className="text-sm text-stone-500">テーマとトーンを選んで、LINE配信用のコンテンツを作成します</p>
+                <h2 className="text-lg font-bold text-stone-800 mb-1">ストーリー生成</h2>
+                <p className="text-sm text-stone-500">テーマとトーンを選んでコンテンツを作成</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/calendar">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-blue-200 bg-blue-50/50 h-full">
+              <CardContent className="pt-6 pb-6">
+                <div className="text-3xl mb-3">📅</div>
+                <h2 className="text-lg font-bold text-stone-800 mb-1">カレンダー</h2>
+                <p className="text-sm text-stone-500">配信スケジュール・リマインダーの管理</p>
               </CardContent>
             </Card>
           </Link>
 
           <Link href="/templates">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer border-stone-200">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-stone-200 h-full">
               <CardContent className="pt-6 pb-6">
                 <div className="text-3xl mb-3">📑</div>
                 <h2 className="text-lg font-bold text-stone-800 mb-1">テンプレート管理</h2>
@@ -59,11 +74,11 @@ export default async function Home() {
           </Link>
 
           <Link href="/knowledge">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer border-stone-200">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-stone-200 h-full">
               <CardContent className="pt-6 pb-6">
                 <div className="text-3xl mb-3">📚</div>
                 <h2 className="text-lg font-bold text-stone-800 mb-1">ナレッジ管理</h2>
-                <p className="text-sm text-stone-500">HP・ブログ・フィードバックのナレッジと商品データの管理</p>
+                <p className="text-sm text-stone-500">ナレッジと商品データの管理</p>
               </CardContent>
             </Card>
           </Link>
@@ -108,16 +123,8 @@ export default async function Home() {
           </Link>
         </div>
 
-        {/* 案内 */}
-        <Card className="bg-stone-100/50 border-stone-200">
-          <CardContent className="pt-6">
-            <h3 className="font-medium text-stone-700 mb-2">🚀 現在の機能</h3>
-            <p className="text-sm text-stone-500 leading-relaxed">
-              ストーリー生成（3トーン対応）、HP・ブログナレッジの自動反映、フィードバック学習、テンプレート保存が利用できます。
-              使い続けるほどフィードバックが蓄積され、生成品質が向上していきます。
-            </p>
-          </CardContent>
-        </Card>
+        {/* ネタストック */}
+        <StockIdeas />
       </main>
     </div>
   )
