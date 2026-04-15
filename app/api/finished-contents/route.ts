@@ -7,8 +7,23 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const month = searchParams.get('month') // YYYY-MM形式
     const includeDone = searchParams.get('include_done') === 'true'
+    const unscheduled = searchParams.get('unscheduled') === 'true'
 
     const supabase = createServiceClient()
+
+    // 未予定ストック取得
+    if (unscheduled) {
+      const { data, error } = await supabase
+        .from('finished_contents')
+        .select('*')
+        .is('scheduled_date', null)
+        .eq('is_done', false)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return NextResponse.json(data)
+    }
+
     let query = supabase
       .from('finished_contents')
       .select('*')

@@ -52,15 +52,23 @@ export default function CalendarPage() {
   const [editTitle, setEditTitle] = useState('')
   const [editBody, setEditBody] = useState('')
 
+  // メール通信ストック
+  const [mailStocks, setMailStocks] = useState<FinishedContent[]>([])
+  const [editingStock, setEditingStock] = useState<string | null>(null)
+  const [stockEditTitle, setStockEditTitle] = useState('')
+  const [stockEditBody, setStockEditBody] = useState('')
+  const [stockScheduleDate, setStockScheduleDate] = useState('')
+
   const monthStr = `${year}-${String(month).padStart(2, '0')}`
   const todayStr = toDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate())
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [memosRes, contentsRes] = await Promise.all([
+      const [memosRes, contentsRes, stockRes] = await Promise.all([
         fetch(`/api/task-memos?include_done=false`),
         fetch(`/api/finished-contents?month=${monthStr}&include_done=false`),
+        fetch(`/api/finished-contents?unscheduled=true`),
       ])
       if (memosRes.ok) {
         const allMemos: TaskMemo[] = await memosRes.json()
@@ -68,6 +76,9 @@ export default function CalendarPage() {
       }
       if (contentsRes.ok) {
         setContents(await contentsRes.json())
+      }
+      if (stockRes.ok) {
+        setMailStocks(await stockRes.json())
       }
     } catch (error) {
       console.error('カレンダーデータ取得エラー:', error)
@@ -244,6 +255,48 @@ export default function CalendarPage() {
     }
   }
 
+  // ========== ストック操作 ==========
+
+  const startEditStock = (s: FinishedContent) => {
+    setEditingStock(s.id)
+    setStockEditTitle(s.title)
+    setStockEditBody(s.body)
+    setStockScheduleDate('')
+  }
+
+  const handleSaveStock = async (id: string) => {
+    try {
+      const updates: Record<string, unknown> = { id, title: stockEditTitle, body: stockEditBody }
+      if (stockScheduleDate) {
+        updates.scheduled_date = stockScheduleDate
+      }
+      await fetch('/api/finished-contents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      setEditingStock(null)
+      fetchData()
+    } catch (error) {
+      console.error('ストック更新エラー:', error)
+    }
+  }
+
+  const handleDeleteStock = async (id: string) => {
+    if (!confirm('このストックを削除しますか？')) return
+    try {
+      await fetch('/api/finished-contents', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setEditingStock(null)
+      fetchData()
+    } catch (error) {
+      console.error('ストック削除エラー:', error)
+    }
+  }
+
   // ========== レンダリング ==========
 
   const days = getMonthDays(year, month)
@@ -403,6 +456,102 @@ export default function CalendarPage() {
                   </div>
                 </div>
               </div>
+
+              {/* メール通信ストック */}
+              {mailStocks.length > 0 && (
+                <Card className="mt-3 border-purple-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-purple-700">
+                      📝 メール通信ストック <span className="text-xs font-normal text-stone-400">({mailStocks.length}件)</span>
+                    </CardTitle>
+                    <p className="text-xs text-stone-400">日付未設定の原稿。編集して配信予定に移動できます</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {mailStocks.map(s => (
+                      <div key={s.id} className="p-3 rounded-lg border border-purple-100 bg-purple-50/30 space-y-2 group">
+                        {editingStock === s.id ? (
+                          // 編集モード
+                          <div className="space-y-2">
+                            <input
+                              value={stockEditTitle}
+                              onChange={(e) => setStockEditTitle(e.target.value)}
+                              placeholder="件名"
+                              className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                            />
+                            <textarea
+                              value={stockEditBody}
+                              onChange={(e) => setStockEditBody(e.target.value)}
+                              placeholder="本文"
+                              rows={6}
+                              className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-y"
+                            />
+                            <div className="text-xs text-stone-400 text-right">{stockEditBody.length}文字</div>
+                            <div>
+                              <div className="text-xs text-stone-500 mb-1">配信予定日を設定（任意：設定するとカレンダーに表示）</div>
+                              <input
+                                type="date"
+                                value={stockScheduleDate}
+                                onChange={(e) => setStockScheduleDate(e.target.value)}
+                                className="text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveStock(s.id)}
+                                className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                              >
+                                {stockScheduleDate ? '保存して配信予定に移動' : '保存'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingStock(null)}
+                                className="text-xs"
+                              >
+                                キャンセル
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          // 表示モード
+                          <>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-sm font-medium text-stone-700 line-clamp-1">{s.title}</span>
+                              <span className="text-xs text-purple-400 shrink-0">🟣 メール</span>
+                            </div>
+                            {s.body && (
+                              <p className="text-xs text-stone-500 line-clamp-2">{s.body}</p>
+                            )}
+                            <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => startEditStock(s)}
+                                className="text-xs text-purple-500 hover:text-purple-700"
+                              >
+                                ✏️ 編集・日付設定
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(`${s.title}\n\n${s.body}`)
+                                }}
+                                className="text-xs text-stone-400 hover:text-stone-600"
+                              >
+                                📋 コピー
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStock(s.id)}
+                                className="text-xs text-red-400 hover:text-red-600"
+                              >
+                                ✕ 削除
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* サイドパネル */}

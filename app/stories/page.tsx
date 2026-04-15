@@ -112,7 +112,7 @@ export default function StoriesPage() {
     }
   }
 
-  const handleSaveMailToSchedule = async () => {
+  const handleSaveMailToStock = async () => {
     if (!mailResult) return
     try {
       const res = await fetch('/api/finished-contents', {
@@ -125,9 +125,9 @@ export default function StoriesPage() {
         }),
       })
       if (!res.ok) throw new Error('保存失敗')
-      alert('配信予定に保存しました！カレンダーから日付を設定できます。')
+      alert('メール通信ストックに保存しました！カレンダーから日付設定・編集できます。')
     } catch {
-      alert('配信予定への保存に失敗しました')
+      alert('ストックへの保存に失敗しました')
     }
   }
 
@@ -365,9 +365,9 @@ export default function StoriesPage() {
                               variant="outline"
                               size="sm"
                               className="border-purple-200 text-purple-700 hover:bg-purple-50"
-                              onClick={handleSaveMailToSchedule}
+                              onClick={handleSaveMailToStock}
                             >
-                              📅 配信予定に保存
+                              📝 ストックに保存
                             </Button>
                             <Button
                               variant="outline"
@@ -502,8 +502,8 @@ export default function StoriesPage() {
                       }}>
                         📋 コピー
                       </Button>
-                      <Button variant="outline" size="sm" className="border-purple-200 text-purple-700" onClick={handleSaveMailToSchedule}>
-                        📅 配信予定に保存
+                      <Button variant="outline" size="sm" className="border-purple-200 text-purple-700" onClick={handleSaveMailToStock}>
+                        📝 ストックに保存
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setMailResult(null); setMailTargetId(null) }}>
                         🔄 再生成

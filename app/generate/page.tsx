@@ -238,7 +238,7 @@ function GeneratePageContent() {
     }
   }
 
-  const handleSaveMailToSchedule = async (tone: ToneKey) => {
+  const handleSaveMailToStock = async (tone: ToneKey) => {
     const mail = mailResult[tone]
     if (!mail) return
 
@@ -256,9 +256,9 @@ function GeneratePageContent() {
       })
 
       if (!res.ok) throw new Error('保存失敗')
-      alert('配信予定に保存しました！カレンダーから日付を設定できます。')
+      alert('メール通信ストックに保存しました！カレンダーから日付設定・編集できます。')
     } catch {
-      setError('配信予定への保存に失敗しました')
+      setError('ストックへの保存に失敗しました')
     }
   }
 
@@ -720,9 +720,9 @@ function GeneratePageContent() {
                                 variant="outline"
                                 size="sm"
                                 className="border-purple-200 text-purple-700 hover:bg-purple-50"
-                                onClick={() => handleSaveMailToSchedule(tone)}
+                                onClick={() => handleSaveMailToStock(tone)}
                               >
-                                📅 配信予定に保存
+                                📝 ストックに保存
                               </Button>
                               <Button
                                 variant="outline"
