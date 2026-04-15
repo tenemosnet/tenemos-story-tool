@@ -121,7 +121,7 @@ export default function StoriesPage() {
         body: JSON.stringify({
           title: mailEditingSubject,
           body: mailEditingBody,
-          type: 'mail',
+          type: 'email',
         }),
       })
       if (!res.ok) throw new Error('保存失敗')

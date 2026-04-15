@@ -251,7 +251,7 @@ function GeneratePageContent() {
         body: JSON.stringify({
           title: subject,
           body: body,
-          type: 'mail',
+          type: 'email',
         }),
       })
 
