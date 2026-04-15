@@ -89,6 +89,7 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 | `app/api/notices/route.ts` | お知らせ欄API（直近7日の予定+期限超過を集約） |
 | `app/api/task-memos/route.ts` | リマインダーCRUD API |
 | `app/api/stock-ideas/route.ts` | ネタストックCRUD API（改行区切り一括登録対応） |
+| `app/api/generate-mail/route.ts` | メール通信原稿生成API（LINE配信ストーリーをベースに生成） |
 | `app/api/finished-contents/route.ts` | 配信予定コンテンツCRUD API（月別フィルター対応） |
 | `middleware.ts` | Cookie認証ガード |
 | `scripts/ingest/hp.ts` | HPスクレイピング（EUC-JP対応、Colormeオブジェクト解析） |

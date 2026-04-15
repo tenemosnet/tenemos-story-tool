@@ -1,6 +1,6 @@
 {
   "name": "tenemos-story-tool",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,6 +9,7 @@
     "lint": "next lint",
     "ingest:hp": "tsx scripts/ingest/hp.ts",
     "ingest:blog": "tsx scripts/ingest/blog.ts",
+    "ingest:mail": "tsx scripts/ingest/mail.ts",
     "build:cf": "opennextjs-cloudflare build",
     "preview:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"

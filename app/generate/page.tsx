@@ -100,6 +100,13 @@ function GeneratePageContent() {
   const [templateSaved, setTemplateSaved] = useState<Partial<Record<ToneKey, boolean>>>({})
   const [templateSaving, setTemplateSaving] = useState(false)
 
+  // メール通信原稿状態
+  const [mailResult, setMailResult] = useState<Partial<Record<ToneKey, { subject: string; body: string; summary: string; duration_ms: number; tokens_used: number }>>>({})
+  const [mailGenerating, setMailGenerating] = useState<ToneKey | null>(null)
+  const [mailAdditionalNotes, setMailAdditionalNotes] = useState<Partial<Record<ToneKey, string>>>({})
+  const [mailEditingBody, setMailEditingBody] = useState<Partial<Record<ToneKey, string>>>({})
+  const [mailEditingSubject, setMailEditingSubject] = useState<Partial<Record<ToneKey, string>>>({})
+
   const theme = selectedTheme === 'custom' ? customTheme :
     THEME_PRESETS.find(t => t.id === selectedTheme)?.label || ''
 
@@ -193,6 +200,65 @@ function GeneratePageContent() {
       setError('テンプレートの保存に失敗しました')
     } finally {
       setTemplateSaving(false)
+    }
+  }
+
+  const handleGenerateMail = async (tone: ToneKey) => {
+    const result = results[tone]
+    if (!result) return
+
+    setMailGenerating(tone)
+    try {
+      const res = await fetch('/api/generate-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          theme,
+          product,
+          tone: TONES[tone].label,
+          storyTitle: result.title,
+          storyBody: editingBody[tone] || result.body,
+          additionalNotes: mailAdditionalNotes[tone] || '',
+        }),
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'メール通信生成に失敗しました')
+      }
+
+      const data = await res.json()
+      setMailResult(prev => ({ ...prev, [tone]: data }))
+      setMailEditingBody(prev => ({ ...prev, [tone]: data.body }))
+      setMailEditingSubject(prev => ({ ...prev, [tone]: data.subject }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'メール通信生成に失敗しました')
+    } finally {
+      setMailGenerating(null)
+    }
+  }
+
+  const handleSaveMailToSchedule = async (tone: ToneKey) => {
+    const mail = mailResult[tone]
+    if (!mail) return
+
+    try {
+      const subject = mailEditingSubject[tone] || mail.subject
+      const body = mailEditingBody[tone] || mail.body
+      const res = await fetch('/api/finished-contents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: subject,
+          body: body,
+          type: 'mail',
+        }),
+      })
+
+      if (!res.ok) throw new Error('保存失敗')
+      alert('配信予定に保存しました！カレンダーから日付を設定できます。')
+    } catch {
+      setError('配信予定への保存に失敗しました')
     }
   }
 
@@ -557,6 +623,123 @@ function GeneratePageContent() {
                             </div>
                           </div>
                         </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* メール通信原稿生成 */}
+                    <Card className="border-purple-200">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-medium text-purple-700">
+                            📧 メール通信原稿を作成
+                          </CardTitle>
+                          {mailResult[tone] && (
+                            <Badge variant="outline" className="text-purple-600 border-purple-300">
+                              {((mailResult[tone]?.duration_ms || 0) / 1000).toFixed(1)}秒
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-stone-400 mt-1">
+                          上のストーリーをベースに、テネモス通信（メルマガ）の原稿たたき台を生成します
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* 追加指示入力 */}
+                        {!mailResult[tone] && (
+                          <div>
+                            <div className="text-xs text-stone-500 mb-1">追加の指示・要望（任意）</div>
+                            <Textarea
+                              placeholder="例：お知らせ欄にGW休業の案内を入れてほしい、もう少しカジュアルに"
+                              value={mailAdditionalNotes[tone] || ''}
+                              onChange={e => setMailAdditionalNotes(prev => ({ ...prev, [tone]: e.target.value }))}
+                              rows={2}
+                            />
+                          </div>
+                        )}
+
+                        {/* 生成ボタン */}
+                        {!mailResult[tone] && (
+                          <Button
+                            onClick={() => handleGenerateMail(tone)}
+                            disabled={mailGenerating !== null}
+                            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                          >
+                            {mailGenerating === tone ? (
+                              <span className="animate-pulse">メール通信原稿を生成中...</span>
+                            ) : (
+                              '📧 メール通信原稿を生成'
+                            )}
+                          </Button>
+                        )}
+
+                        {/* メール通信結果 */}
+                        {mailResult[tone] && (
+                          <div className="space-y-3">
+                            {/* 件名 */}
+                            <div>
+                              <div className="text-xs text-stone-500 mb-1">件名</div>
+                              <input
+                                type="text"
+                                value={mailEditingSubject[tone] || mailResult[tone]?.subject || ''}
+                                onChange={e => setMailEditingSubject(prev => ({ ...prev, [tone]: e.target.value }))}
+                                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-300"
+                              />
+                            </div>
+
+                            {/* 本文 */}
+                            <div>
+                              <div className="text-xs text-stone-500 mb-1">本文</div>
+                              <Textarea
+                                value={mailEditingBody[tone] || mailResult[tone]?.body || ''}
+                                onChange={e => setMailEditingBody(prev => ({ ...prev, [tone]: e.target.value }))}
+                                rows={14}
+                                className="resize-y text-sm leading-relaxed"
+                              />
+                              <div className="flex justify-between mt-1.5 text-xs text-stone-400">
+                                <span>{(mailEditingBody[tone] || mailResult[tone]?.body || '').length}文字</span>
+                                {mailEditingBody[tone] && mailEditingBody[tone] !== mailResult[tone]?.body && (
+                                  <span className="text-amber-500">編集済み</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* アクションボタン */}
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  const subject = mailEditingSubject[tone] || mailResult[tone]?.subject || ''
+                                  const body = mailEditingBody[tone] || mailResult[tone]?.body || ''
+                                  await navigator.clipboard.writeText(`${subject}\n\n${body}`)
+                                }}
+                              >
+                                📋 全体コピー
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                                onClick={() => handleSaveMailToSchedule(tone)}
+                              >
+                                📅 配信予定に保存
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setMailResult(prev => {
+                                    const next = { ...prev }
+                                    delete next[tone]
+                                    return next
+                                  })
+                                }}
+                              >
+                                🔄 再生成
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
