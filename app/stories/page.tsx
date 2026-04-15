@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
 
 type Story = {
   id: string
@@ -65,6 +66,70 @@ export default function StoriesPage() {
   const filteredStories = toneFilter === 'all'
     ? stories
     : stories.filter(s => s.tone === toneFilter)
+
+  // メール通信原稿状態
+  const [mailResult, setMailResult] = useState<{ subject: string; body: string; summary: string } | null>(null)
+  const [mailGenerating, setMailGenerating] = useState(false)
+  const [mailNotes, setMailNotes] = useState('')
+  const [mailEditingSubject, setMailEditingSubject] = useState('')
+  const [mailEditingBody, setMailEditingBody] = useState('')
+  const [mailTargetId, setMailTargetId] = useState<string | null>(null)
+
+  // ストーリー選択時にメール通信状態をリセット
+  useEffect(() => {
+    setMailResult(null)
+    setMailNotes('')
+    setMailTargetId(null)
+  }, [selectedId])
+
+  const handleGenerateMail = async (story: Story) => {
+    setMailGenerating(true)
+    setMailTargetId(story.id)
+    try {
+      const res = await fetch('/api/generate-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          theme: story.theme,
+          tone: story.tone,
+          storyTitle: story.title,
+          storyBody: story.body,
+          additionalNotes: mailNotes,
+        }),
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'メール通信生成に失敗しました')
+      }
+      const data = await res.json()
+      setMailResult(data)
+      setMailEditingSubject(data.subject)
+      setMailEditingBody(data.body)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'メール通信生成に失敗しました')
+    } finally {
+      setMailGenerating(false)
+    }
+  }
+
+  const handleSaveMailToSchedule = async () => {
+    if (!mailResult) return
+    try {
+      const res = await fetch('/api/finished-contents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: mailEditingSubject,
+          body: mailEditingBody,
+          type: 'mail',
+        }),
+      })
+      if (!res.ok) throw new Error('保存失敗')
+      alert('配信予定に保存しました！カレンダーから日付を設定できます。')
+    } catch {
+      alert('配信予定への保存に失敗しました')
+    }
+  }
 
   const handleCopy = async (story: Story) => {
     const text = `${story.title}\n\n${story.body}\n\n${story.hashtags.map(t => `#${t}`).join(' ')}`
@@ -234,6 +299,87 @@ export default function StoriesPage() {
                         この文体で再生成
                       </Button>
                     </div>
+
+                    {/* メール通信原稿生成 */}
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-medium text-purple-700 mb-2">📧 メール通信原稿を作成</h3>
+                      <p className="text-xs text-stone-400 mb-3">このストーリーをベースに、テネモス通信（メルマガ）の原稿たたき台を生成します</p>
+
+                      {!mailResult || mailTargetId !== selectedStory.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            placeholder="追加の指示・要望（任意）例：GW休業案内を入れて"
+                            value={mailNotes}
+                            onChange={e => setMailNotes(e.target.value)}
+                            rows={2}
+                          />
+                          <Button
+                            onClick={() => handleGenerateMail(selectedStory)}
+                            disabled={mailGenerating}
+                            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                          >
+                            {mailGenerating && mailTargetId === selectedStory.id ? (
+                              <span className="animate-pulse">メール通信原稿を生成中...</span>
+                            ) : (
+                              '📧 メール通信原稿を生成'
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <div className="text-xs text-stone-500 mb-1">件名</div>
+                            <input
+                              type="text"
+                              value={mailEditingSubject}
+                              onChange={e => setMailEditingSubject(e.target.value)}
+                              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-300"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-xs text-stone-500 mb-1">本文</div>
+                            <Textarea
+                              value={mailEditingBody}
+                              onChange={e => setMailEditingBody(e.target.value)}
+                              rows={12}
+                              className="resize-y text-sm leading-relaxed"
+                            />
+                            <div className="flex justify-between mt-1 text-xs text-stone-400">
+                              <span>{mailEditingBody.length}文字</span>
+                              {mailEditingBody !== mailResult.body && (
+                                <span className="text-amber-500">編集済み</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(`${mailEditingSubject}\n\n${mailEditingBody}`)
+                              }}
+                            >
+                              📋 全体コピー
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                              onClick={handleSaveMailToSchedule}
+                            >
+                              📅 配信予定に保存
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => { setMailResult(null); setMailTargetId(null) }}
+                            >
+                              🔄 再生成
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ) : (
@@ -304,6 +450,67 @@ export default function StoriesPage() {
                 >
                   この文体で再生成
                 </Button>
+              </div>
+
+              {/* メール通信原稿生成（モバイル） */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-medium text-purple-700 mb-2">📧 メール通信原稿を作成</h3>
+                {!mailResult || mailTargetId !== selectedStory.id ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder="追加の指示・要望（任意）"
+                      value={mailNotes}
+                      onChange={e => setMailNotes(e.target.value)}
+                      rows={2}
+                    />
+                    <Button
+                      onClick={() => handleGenerateMail(selectedStory)}
+                      disabled={mailGenerating}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {mailGenerating && mailTargetId === selectedStory.id ? (
+                        <span className="animate-pulse">生成中...</span>
+                      ) : (
+                        '📧 メール通信原稿を生成'
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-xs text-stone-500 mb-1">件名</div>
+                      <input
+                        type="text"
+                        value={mailEditingSubject}
+                        onChange={e => setMailEditingSubject(e.target.value)}
+                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-300"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-stone-500 mb-1">本文</div>
+                      <Textarea
+                        value={mailEditingBody}
+                        onChange={e => setMailEditingBody(e.target.value)}
+                        rows={10}
+                        className="resize-y text-sm leading-relaxed"
+                      />
+                      <div className="text-xs text-stone-400 mt-1">{mailEditingBody.length}文字</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={async () => {
+                        await navigator.clipboard.writeText(`${mailEditingSubject}\n\n${mailEditingBody}`)
+                      }}>
+                        📋 コピー
+                      </Button>
+                      <Button variant="outline" size="sm" className="border-purple-200 text-purple-700" onClick={handleSaveMailToSchedule}>
+                        📅 配信予定に保存
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => { setMailResult(null); setMailTargetId(null) }}>
+                        🔄 再生成
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
