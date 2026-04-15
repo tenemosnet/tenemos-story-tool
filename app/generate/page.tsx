@@ -238,6 +238,9 @@ function GeneratePageContent() {
     }
   }
 
+  // メール通信ストック保存成功状態
+  const [mailStockSaved, setMailStockSaved] = useState<Partial<Record<ToneKey, boolean>>>({})
+
   const handleSaveMailToStock = async (tone: ToneKey) => {
     const mail = mailResult[tone]
     if (!mail) return
@@ -256,7 +259,7 @@ function GeneratePageContent() {
       })
 
       if (!res.ok) throw new Error('保存失敗')
-      alert('メール通信ストックに保存しました！カレンダーから日付設定・編集できます。')
+      setMailStockSaved(prev => ({ ...prev, [tone]: true }))
     } catch {
       setError('ストックへの保存に失敗しました')
     }
@@ -716,14 +719,20 @@ function GeneratePageContent() {
                               >
                                 📋 全体コピー
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-purple-200 text-purple-700 hover:bg-purple-50"
-                                onClick={() => handleSaveMailToStock(tone)}
-                              >
-                                📝 ストックに保存
-                              </Button>
+                              {mailStockSaved[tone] ? (
+                                <a href="/calendar#stock" className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800">
+                                  ✓ ストック保存済み → 一覧を見る
+                                </a>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                                  onClick={() => handleSaveMailToStock(tone)}
+                                >
+                                  📝 ストックに保存
+                                </Button>
+                              )}
                               <Button
                                 variant="outline"
                                 size="sm"

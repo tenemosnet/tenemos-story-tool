@@ -9,16 +9,18 @@ export const dynamic = 'force-dynamic'
 async function getStats() {
   const supabase = createServiceClient()
 
-  const [stories, templates, knowledge] = await Promise.all([
+  const [stories, templates, knowledge, mailStocks] = await Promise.all([
     supabase.from('stories').select('id', { count: 'exact', head: true }),
     supabase.from('templates').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('knowledge_sources').select('id', { count: 'exact', head: true }),
+    supabase.from('finished_contents').select('id', { count: 'exact', head: true }).is('scheduled_date', null).eq('is_done', false),
   ])
 
   return {
     stories: stories.count ?? 0,
     templates: templates.count ?? 0,
     knowledge: knowledge.count ?? 0,
+    mailStocks: mailStocks.count ?? 0,
   }
 }
 
@@ -85,7 +87,7 @@ export default async function Home() {
         </div>
 
         {/* ステータス */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link href="/stories">
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader className="pb-2">
@@ -94,6 +96,18 @@ export default async function Home() {
               <CardContent>
                 <div className="text-2xl font-bold text-stone-800">{stats.stories}件</div>
                 <p className="text-xs text-stone-400 mt-1">クリックで履歴を表示 →</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/calendar#stock">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-purple-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-purple-600">📝 メール通信ストック</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-stone-800">{stats.mailStocks}件</div>
+                <p className="text-xs text-stone-400 mt-1">クリックで一覧を表示 →</p>
               </CardContent>
             </Card>
           </Link>

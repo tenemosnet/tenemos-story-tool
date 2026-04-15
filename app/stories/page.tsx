@@ -80,6 +80,7 @@ export default function StoriesPage() {
     setMailResult(null)
     setMailNotes('')
     setMailTargetId(null)
+    setMailStockSaved(false)
   }, [selectedId])
 
   const handleGenerateMail = async (story: Story) => {
@@ -112,6 +113,8 @@ export default function StoriesPage() {
     }
   }
 
+  const [mailStockSaved, setMailStockSaved] = useState(false)
+
   const handleSaveMailToStock = async () => {
     if (!mailResult) return
     try {
@@ -125,7 +128,7 @@ export default function StoriesPage() {
         }),
       })
       if (!res.ok) throw new Error('保存失敗')
-      alert('メール通信ストックに保存しました！カレンダーから日付設定・編集できます。')
+      setMailStockSaved(true)
     } catch {
       alert('ストックへの保存に失敗しました')
     }
@@ -369,10 +372,15 @@ export default function StoriesPage() {
                             >
                               📝 ストックに保存
                             </Button>
+                            {mailStockSaved && (
+                              <a href="/calendar#stock" className="inline-flex items-center text-xs font-medium text-purple-600 hover:text-purple-800">
+                                ✓ 保存済み → 一覧を見る
+                              </a>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => { setMailResult(null); setMailTargetId(null) }}
+                              onClick={() => { setMailResult(null); setMailTargetId(null); setMailStockSaved(false) }}
                             >
                               🔄 再生成
                             </Button>
@@ -505,7 +513,12 @@ export default function StoriesPage() {
                       <Button variant="outline" size="sm" className="border-purple-200 text-purple-700" onClick={handleSaveMailToStock}>
                         📝 ストックに保存
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => { setMailResult(null); setMailTargetId(null) }}>
+                      {mailStockSaved && (
+                        <a href="/calendar#stock" className="inline-flex items-center text-xs font-medium text-purple-600 hover:text-purple-800">
+                          ✓ 保存済み → 一覧を見る
+                        </a>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => { setMailResult(null); setMailTargetId(null); setMailStockSaved(false) }}>
                         🔄 再生成
                       </Button>
                     </div>

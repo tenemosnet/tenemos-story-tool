@@ -458,7 +458,8 @@ export default function CalendarPage() {
               </div>
 
               {/* メール通信ストック */}
-              {mailStocks.length > 0 && (
+              <div id="stock">
+              {mailStocks.length > 0 ? (
                 <Card className="mt-3 border-purple-200">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-purple-700">
@@ -551,7 +552,15 @@ export default function CalendarPage() {
                     ))}
                   </CardContent>
                 </Card>
+              ) : (
+                <Card className="mt-3 border-dashed border-purple-200 bg-purple-50/20">
+                  <CardContent className="pt-4 pb-4 text-center">
+                    <p className="text-sm text-purple-400">📝 メール通信ストックはまだありません</p>
+                    <p className="text-xs text-stone-400 mt-1">ストーリー生成 → メール通信原稿作成 → ストックに保存</p>
+                  </CardContent>
+                </Card>
               )}
+              </div>
             </div>
 
             {/* サイドパネル */}
