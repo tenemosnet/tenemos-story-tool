@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -20,5 +20,27 @@ export async function GET() {
   } catch (error) {
     console.error('ストーリー取得エラー:', error)
     return NextResponse.json({ error: '取得に失敗しました' }, { status: 500 })
+  }
+}
+
+// ストーリー削除
+export async function DELETE(req: NextRequest) {
+  try {
+    const { ids } = await req.json() as { ids: string[] }
+    if (!ids || ids.length === 0) {
+      return NextResponse.json({ error: '削除対象が指定されていません' }, { status: 400 })
+    }
+
+    const supabase = createServiceClient()
+    const { error } = await supabase
+      .from('stories')
+      .delete()
+      .in('id', ids)
+
+    if (error) throw error
+    return NextResponse.json({ deleted: ids.length })
+  } catch (error) {
+    console.error('ストーリー削除エラー:', error)
+    return NextResponse.json({ error: '削除に失敗しました' }, { status: 500 })
   }
 }

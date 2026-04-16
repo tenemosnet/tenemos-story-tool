@@ -38,6 +38,9 @@ export default function StoriesPage() {
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [toneFilter, setToneFilter] = useState<string>('all')
+  const [deleteMode, setDeleteMode] = useState(false)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const fetchStories = async () => {
@@ -134,6 +137,37 @@ export default function StoriesPage() {
     }
   }
 
+  const toggleCheck = (id: string) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleDelete = async () => {
+    if (checkedIds.size === 0) return
+    if (!confirm(`${checkedIds.size}件のストーリーを削除しますか？`)) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/stories', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(checkedIds) }),
+      })
+      if (!res.ok) throw new Error()
+      setStories(prev => prev.filter(s => !checkedIds.has(s.id)))
+      if (selectedId && checkedIds.has(selectedId)) setSelectedId(null)
+      setCheckedIds(new Set())
+      setDeleteMode(false)
+    } catch {
+      alert('削除に失敗しました')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleCopy = async (story: Story) => {
     const text = `${story.title}\n\n${story.body}\n\n${story.hashtags.map(t => `#${t}`).join(' ')}`
     await navigator.clipboard.writeText(text)
@@ -146,6 +180,40 @@ export default function StoriesPage() {
           <a href="/" className="text-stone-400 hover:text-stone-600 text-sm">← ダッシュボード</a>
           <h1 className="text-xl font-bold text-stone-800">生成履歴</h1>
           <span className="text-sm text-stone-400">{stories.length}件</span>
+          <div className="ml-auto flex items-center gap-2">
+            {deleteMode ? (
+              <>
+                <span className="text-sm text-red-600">{checkedIds.size}件選択中</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                  disabled={checkedIds.size === 0 || deleting}
+                  onClick={handleDelete}
+                >
+                  {deleting ? '削除中...' : '🗑 削除'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setDeleteMode(false); setCheckedIds(new Set()) }}
+                >
+                  キャンセル
+                </Button>
+              </>
+            ) : (
+              stories.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-stone-500"
+                  onClick={() => setDeleteMode(true)}
+                >
+                  選択して削除
+                </Button>
+              )
+            )}
+          </div>
         </div>
       </header>
 
@@ -194,11 +262,26 @@ export default function StoriesPage() {
                       selectedId === story.id
                         ? 'ring-2 ring-green-500 border-green-300'
                         : ''
-                    }`}
-                    onClick={() => setSelectedId(story.id)}
+                    } ${checkedIds.has(story.id) ? 'bg-red-50 border-red-200' : ''}`}
+                    onClick={() => {
+                      if (deleteMode) {
+                        toggleCheck(story.id)
+                      } else {
+                        setSelectedId(story.id)
+                      }
+                    }}
                   >
                     <CardContent className="py-3 px-4">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {deleteMode && (
+                          <input
+                            type="checkbox"
+                            checked={checkedIds.has(story.id)}
+                            onChange={() => toggleCheck(story.id)}
+                            onClick={e => e.stopPropagation()}
+                            className="w-4 h-4 rounded border-stone-300 text-red-600 focus:ring-red-500 shrink-0"
+                          />
+                        )}
                         <Badge variant="secondary" className="text-xs shrink-0">
                           {TONE_EMOJI[story.tone] || ''} {story.tone}
                         </Badge>
