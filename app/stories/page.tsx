@@ -263,13 +263,7 @@ export default function StoriesPage() {
                         ? 'ring-2 ring-green-500 border-green-300'
                         : ''
                     } ${checkedIds.has(story.id) ? 'bg-red-50 border-red-200' : ''}`}
-                    onClick={() => {
-                      if (deleteMode) {
-                        toggleCheck(story.id)
-                      } else {
-                        setSelectedId(story.id)
-                      }
-                    }}
+                    onClick={() => setSelectedId(story.id)}
                   >
                     <CardContent className="py-3 px-4">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -279,7 +273,7 @@ export default function StoriesPage() {
                             checked={checkedIds.has(story.id)}
                             onChange={() => toggleCheck(story.id)}
                             onClick={e => e.stopPropagation()}
-                            className="w-4 h-4 rounded border-stone-300 text-red-600 focus:ring-red-500 shrink-0"
+                            className="w-4 h-4 rounded border-stone-300 text-red-600 focus:ring-red-500 shrink-0 cursor-pointer"
                           />
                         )}
                         <Badge variant="secondary" className="text-xs shrink-0">

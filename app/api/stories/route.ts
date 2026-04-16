@@ -23,7 +23,7 @@ export async function GET() {
   }
 }
 
-// ストーリー削除
+// ストーリー削除（関連レコードも含めて削除）
 export async function DELETE(req: NextRequest) {
   try {
     const { ids } = await req.json() as { ids: string[] }
@@ -32,6 +32,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     const supabase = createServiceClient()
+
+    // 外部キー参照している関連テーブルを先に削除
+    await supabase.from('generation_logs').delete().in('story_id', ids)
+    await supabase.from('finished_contents').delete().in('story_id', ids)
+    await supabase.from('stock_ideas').delete().in('story_id', ids)
+
     const { error } = await supabase
       .from('stories')
       .delete()
