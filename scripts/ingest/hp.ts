@@ -8,6 +8,7 @@
 import * as cheerio from 'cheerio'
 import * as iconv from 'iconv-lite'
 import { createClient } from '@supabase/supabase-js'
+import { MODELS } from '@/lib/config'
 import Anthropic from '@anthropic-ai/sdk'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
@@ -147,7 +148,7 @@ async function analyzeProducts(products: Array<{
   console.log(`  Claude APIで${products.length}件の商品を分析中...`)
 
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: MODELS.ingest,
     max_tokens: 2048,
     messages: [{
       role: 'user',

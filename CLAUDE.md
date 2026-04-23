@@ -33,7 +33,7 @@ npm run preview:cf       # ローカルプレビュー
 ## 技術スタック
 
 - **Next.js 14** (App Router) + TypeScript + Tailwind CSS 3 + shadcn/ui (Radix, v3互換)
-- **Claude API** (claude-sonnet-4-20250514) — Webアプリ内ではfetch()直接呼び出し（Workers互換）、ingestスクリプトでは@anthropic-ai/sdk使用
+- **Claude API** — モデルは `lib/config.ts` の `MODELS` 定数で一元管理。デフォルトは `claude-sonnet-4-6`（生成・ingest用）、`claude-opus-4-7`（premium用途）。環境変数 `CLAUDE_MODEL_GENERATE` / `CLAUDE_MODEL_INGEST` / `CLAUDE_MODEL_PREMIUM` で上書き可能。Webアプリ内ではfetch()直接呼び出し（Workers互換）、ingestスクリプトでは@anthropic-ai/sdk使用
 - **Supabase** (PostgreSQL) — 東京リージョン
 - **デプロイ先**: Cloudflare Pages（`@opennextjs/cloudflare@1.15.1`経由）
   - 本番URL: `tenemos-story-tool.office1tenemos.workers.dev`

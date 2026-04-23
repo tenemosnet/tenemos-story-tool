@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callClaude } from '@/lib/claude'
 import { createServiceClient } from '@/lib/supabase'
 import { buildSystemPrompt, buildUserPrompt, TONES, ToneKey } from '@/lib/prompts/system'
+import { MODELS } from '@/lib/config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,8 +39,9 @@ export async function POST(request: NextRequest) {
     })
 
     // Claude API呼び出し（fetch版）
+    const modelUsed = MODELS.generate
     const message = await callClaude({
-      model: 'claude-sonnet-4-20250514',
+      model: modelUsed,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
     if (story) {
       await supabase.from('generation_logs').insert({
         story_id: story.id,
-        model: 'claude-sonnet-4-20250514',
+        model: modelUsed,
         tokens_used: message.usage.input_tokens + message.usage.output_tokens,
         duration_ms: duration,
       })

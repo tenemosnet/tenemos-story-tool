@@ -59,7 +59,7 @@ CREATE TABLE generation_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   story_id UUID REFERENCES stories(id),
   prompt_used TEXT,
-  model TEXT DEFAULT 'claude-sonnet-4-20250514',
+  model TEXT NOT NULL,
   tokens_used INT,
   duration_ms INT,
   created_at TIMESTAMPTZ DEFAULT NOW()

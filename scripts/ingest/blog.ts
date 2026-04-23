@@ -12,6 +12,7 @@ import * as cheerio from 'cheerio'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import * as dotenv from 'dotenv'
+import { MODELS } from '@/lib/config'
 import * as path from 'path'
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env.local') })
@@ -162,7 +163,7 @@ async function analyzeArticles(articles: Array<{
   console.log(`  Claude APIで${articles.length}件の記事を分析中...`)
 
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: MODELS.ingest,
     max_tokens: 2048,
     messages: [{
       role: 'user',

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { callClaude } from '@/lib/claude'
+import { MODELS } from '@/lib/config'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -123,8 +124,9 @@ export async function GET(request: NextRequest) {
 ※季節感のあるテーマの場合は、必ず今の時期に合った内容にしてください。
 JSONのみ出力してください。`
 
+    const modelUsed = MODELS.generate
     const message = await callClaude({
-      model: 'claude-sonnet-4-20250514',
+      model: modelUsed,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
@@ -161,7 +163,7 @@ JSONのみ出力してください。`
     // ⑤ generation_logを保存
     await supabase.from('generation_logs').insert({
       story_id: story.id,
-      model: 'claude-sonnet-4-20250514',
+      model: modelUsed,
       tokens_used: message.usage.input_tokens + message.usage.output_tokens,
     })
 

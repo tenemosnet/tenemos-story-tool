@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { callClaude } from '@/lib/claude'
+import { MODELS } from '@/lib/config'
 
 // メール通信原稿のシステムプロンプトを構築
 async function buildMailSystemPrompt(): Promise<string> {
@@ -87,7 +88,7 @@ JSONのみ出力してください。
     `.trim()
 
     const response = await callClaude({
-      model: 'claude-sonnet-4-20250514',
+      model: MODELS.generate,
       max_tokens: 2048,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],

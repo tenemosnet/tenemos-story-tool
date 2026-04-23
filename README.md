@@ -14,7 +14,7 @@
 ## 技術スタック
 
 - Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
-- Claude API (claude-sonnet-4-20250514)
+- Claude API — モデルは `lib/config.ts` で一元管理（デフォルト: `claude-sonnet-4-6` / premium: `claude-opus-4-7`）
 - Supabase (PostgreSQL)
 - Vercel
 
