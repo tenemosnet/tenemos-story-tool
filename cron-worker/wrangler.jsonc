@@ -1,0 +1,15 @@
+{
+  "name": "tenemos-story-cron",
+  "main": "worker.js",
+  "compatibility_date": "2024-09-23",
+  "triggers": {
+    // 毎週月曜 朝7:00 JST = 日曜 22:00 UTC
+    "crons": ["0 22 * * SUN"]
+  },
+  "services": [
+    {
+      "binding": "STORY_TOOL",
+      "service": "tenemos-story-tool"
+    }
+  ]
+}

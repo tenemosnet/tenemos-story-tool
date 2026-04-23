@@ -9,11 +9,13 @@ export const dynamic = 'force-dynamic'
 async function getStats() {
   const supabase = createServiceClient()
 
-  const [stories, templates, knowledge, mailStocks] = await Promise.all([
+  const [stories, templates, knowledge, mailStocks, latestAutoStory, unusedStock] = await Promise.all([
     supabase.from('stories').select('id', { count: 'exact', head: true }),
     supabase.from('templates').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('knowledge_sources').select('id', { count: 'exact', head: true }),
     supabase.from('finished_contents').select('id', { count: 'exact', head: true }).is('scheduled_date', null).eq('is_done', false),
+    supabase.from('stories').select('id, title, tone, theme, created_at').eq('length_setting', 400).order('created_at', { ascending: false }).limit(1),
+    supabase.from('stock_ideas').select('id', { count: 'exact', head: true }).eq('status', 'unused'),
   ])
 
   return {
@@ -21,6 +23,8 @@ async function getStats() {
     templates: templates.count ?? 0,
     knowledge: knowledge.count ?? 0,
     mailStocks: mailStocks.count ?? 0,
+    latestAutoStory: latestAutoStory.data?.[0] ?? null,
+    unusedStock: unusedStock.count ?? 0,
   }
 }
 
@@ -33,7 +37,7 @@ export default async function Home() {
       <header className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <div>
-            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v3.5</span></h1>
+            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v4.0</span></h1>
             <p className="text-sm text-stone-500 mt-0.5">LINE配信コンテンツ生成</p>
           </div>
         </div>
@@ -68,7 +72,10 @@ export default async function Home() {
           <Link href="/templates">
             <Card className="hover:shadow-md transition-shadow cursor-pointer border-stone-200 h-full">
               <CardContent className="pt-6 pb-6">
-                <div className="text-3xl mb-3">📑</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-3xl">📑</span>
+                  <span className="text-sm font-medium text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{stats.templates}件</span>
+                </div>
                 <h2 className="text-lg font-bold text-stone-800 mb-1">テンプレート管理</h2>
                 <p className="text-sm text-stone-500">保存したテンプレートの閲覧・再利用・削除</p>
               </CardContent>
@@ -78,7 +85,10 @@ export default async function Home() {
           <Link href="/knowledge">
             <Card className="hover:shadow-md transition-shadow cursor-pointer border-stone-200 h-full">
               <CardContent className="pt-6 pb-6">
-                <div className="text-3xl mb-3">📚</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-3xl">📚</span>
+                  <span className="text-sm font-medium text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">{stats.knowledge}件</span>
+                </div>
                 <h2 className="text-lg font-bold text-stone-800 mb-1">ナレッジ管理</h2>
                 <p className="text-sm text-stone-500">ナレッジと商品データの管理</p>
               </CardContent>
@@ -112,29 +122,42 @@ export default async function Home() {
             </Card>
           </Link>
 
-          <Link href="/templates">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          {/* 自動生成ストーリー */}
+          <Link href="/stories">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-amber-200 bg-amber-50/30">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-stone-500">テンプレート</CardTitle>
+                <CardTitle className="text-sm font-medium text-amber-700">🤖 週次自動生成</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-stone-800">{stats.templates}件</div>
-                <p className="text-xs text-stone-400 mt-1">クリックで管理画面へ →</p>
+                {stats.latestAutoStory ? (
+                  <>
+                    <p className="text-sm font-bold text-stone-800 truncate">{stats.latestAutoStory.title}</p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      {new Date(stats.latestAutoStory.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-stone-400">まだ自動生成はありません</p>
+                )}
+                <p className="text-xs text-amber-600 mt-2">ネタストック残: {stats.unusedStock}件</p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/knowledge">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-stone-500">ナレッジ</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-stone-800">{stats.knowledge}件</div>
-                <p className="text-xs text-stone-400 mt-1">クリックで管理画面へ →</p>
-              </CardContent>
-            </Card>
-          </Link>
+          {/* ネタストック残数 */}
+          <Card className={`hover:shadow-md transition-shadow ${stats.unusedStock <= 2 ? 'border-red-200 bg-red-50/30' : 'border-green-200 bg-green-50/30'}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className={`text-sm font-medium ${stats.unusedStock <= 2 ? 'text-red-600' : 'text-green-700'}`}>
+                {stats.unusedStock <= 2 ? '⚠️' : '✅'} 自動生成ネタ残数
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${stats.unusedStock <= 2 ? 'text-red-700' : 'text-stone-800'}`}>{stats.unusedStock}件</div>
+              <p className="text-xs text-stone-400 mt-1">
+                {stats.unusedStock === 0 ? '次回はスキップされます' : `あと約${stats.unusedStock}週間分`}
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* ネタストック */}

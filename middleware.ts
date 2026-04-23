@@ -6,6 +6,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Cron APIはCookie認証不要（Bearer tokenで独自認証する）
+  if (request.nextUrl.pathname.startsWith('/api/cron/')) {
+    return NextResponse.next()
+  }
+
   // ログインページはスキップ
   if (request.nextUrl.pathname === '/login') {
     return NextResponse.next()

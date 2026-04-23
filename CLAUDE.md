@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-テネモスネットのLINE配信向けストーリー生成ツール。Claude APIでコンテンツを自動生成し、HP・ブログから収集したナレッジとユーザーフィードバックで品質を継続的に向上させる。
+テネモスネットのLINE配信・メール通信向けコンテンツ生成ツール（v4.0）。Claude APIでストーリーを自動生成し、HP・ブログから収集したナレッジとユーザーフィードバックで品質を継続的に向上させる。生成したストーリーからメール通信原稿への変換、配信スケジュール管理、ネタストック機能も備える。
 
 ## 開発コマンド
 
@@ -24,8 +24,7 @@ npm run ingest:hp        # shop.tenemos.jp 全商品スクレイピング
 npm run ingest:blog      # Seesaaブログ記事収集 + トーン分析
 npm run ingest:blog -- --limit 10  # 件数制限付き
 
-# Cloudflareデプロイ（CLOUDFLARE_API_TOKENが必要）
-export CLOUDFLARE_API_TOKEN="..."
+# Cloudflareデプロイ（CLOUDFLARE_API_TOKENは~/.bashrcに設定済み）
 npm run deploy:cf        # ビルド + デプロイ
 npm run build:cf         # ビルドのみ
 npm run preview:cf       # ローカルプレビュー
@@ -37,8 +36,9 @@ npm run preview:cf       # ローカルプレビュー
 - **Claude API** (claude-sonnet-4-20250514) — Webアプリ内ではfetch()直接呼び出し（Workers互換）、ingestスクリプトでは@anthropic-ai/sdk使用
 - **Supabase** (PostgreSQL) — 東京リージョン
 - **デプロイ先**: Cloudflare Pages（`@opennextjs/cloudflare@1.15.1`経由）
-  - URL: `tenemos-story-tool.office1tenemos.workers.dev`
+  - 本番URL: `tenemos-story-tool.office1tenemos.workers.dev`
   - Git author email: office1tenemos@gmail.com
+  - `CLOUDFLARE_API_TOKEN`は`~/.bashrc`に永続設定済み（トークン名: "tenemos-story-tool build token"）
 
 ## アーキテクチャ
 
@@ -91,6 +91,8 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 | `app/api/stock-ideas/route.ts` | ネタストックCRUD API（改行区切り一括登録対応） |
 | `app/api/generate-mail/route.ts` | メール通信原稿生成API（LINE配信ストーリーをベースに生成） |
 | `app/api/finished-contents/route.ts` | 配信予定コンテンツCRUD API（月別フィルター対応） |
+| `app/stories/page.tsx` | 生成履歴（一覧・詳細・コピー・再生成・メール変換・一括削除） |
+| `app/calendar/page.tsx` | 月間カレンダー（リマインダー・配信予定・ストック管理） |
 | `middleware.ts` | Cookie認証ガード |
 | `scripts/ingest/hp.ts` | HPスクレイピング（EUC-JP対応、Colormeオブジェクト解析） |
 | `scripts/ingest/blog.ts` | ブログ収集 + Claude APIトーン分析 |
@@ -107,6 +109,13 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 - `finished_contents`は配信予定コンテンツ（LINE/メール種別、日付・完了管理）
 - `task_memos`はリマインダー（日付・完了フラグ）
 - スキーマ定義: `supabase/schema.sql`
+
+### 外部キー依存関係（storiesテーブル）
+
+`stories`レコードを削除する際は、以下の参照テーブルを先に削除すること：
+- `generation_logs.story_id` → `stories.id`
+- `stock_ideas.story_id` → `stories.id`
+- `finished_contents.story_id` → `stories.id`
 
 ## 環境変数
 
