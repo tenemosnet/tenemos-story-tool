@@ -18,6 +18,12 @@
 - Supabase (PostgreSQL)
 - Vercel
 
+## セキュリティ上の注意
+
+本プロジェクトでは、APIキーやパスワードなどの機密情報を**一切コミットしません**。
+環境変数は `.env.local` / `.dev.vars` / Cloudflareダッシュボードにのみ設定してください。
+詳細は [CLAUDE.md の「環境変数・認証情報の取り扱い」](./CLAUDE.md) を参照。
+
 ## セットアップ
 
 ```bash

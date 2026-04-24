@@ -40,6 +40,9 @@ export default async function Home() {
             <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v4.0</span></h1>
             <p className="text-sm text-stone-500 mt-0.5">LINE配信コンテンツ生成</p>
           </div>
+          <a href="/output-templates" className="text-xs text-stone-400 hover:text-stone-600 transition-colors">
+            出力テンプレート管理 &rarr;
+          </a>
         </div>
       </header>
 

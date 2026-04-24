@@ -70,6 +70,13 @@ npm run ingest:blog → Seesaa記事取得 → knowledge_sourcesに保存
                     → Claude APIバッチ分析(10件ずつ) → brand情報・tone規定を自動生成
 ```
 
+### テンプレート管理
+
+2種類のテンプレート機能がある：
+
+- **テンプレート**（`/templates`）: 生成済みストーリーをテンプレートとして保存・再利用する機能。`templates`テーブル使用
+- **出力テンプレート**（`/output-templates`）: メール通信・WordPress記事変換用の汎用テンプレート管理基盤。`output_templates`テーブル使用。`structure_spec`（JSONB）でセクション構成・記事タイプ・メール固有設定等を柔軟に定義
+
 ### 認証
 
 Cookie方式の共有パスワード認証。`middleware.ts`が全ルートをガードし、`/login`と`/api/auth`のみスキップ。
@@ -93,13 +100,16 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 | `app/api/finished-contents/route.ts` | 配信予定コンテンツCRUD API（月別フィルター対応） |
 | `app/stories/page.tsx` | 生成履歴（一覧・詳細・コピー・再生成・メール変換・一括削除） |
 | `app/calendar/page.tsx` | 月間カレンダー（リマインダー・配信予定・ストック管理） |
+| `app/output-templates/page.tsx` | 出力テンプレート一覧・管理UI |
+| `app/api/output-templates/route.ts` | 出力テンプレートCRUD API |
+| `lib/types/output-template.ts` | 出力テンプレート関連型定義 |
 | `middleware.ts` | Cookie認証ガード |
 | `scripts/ingest/hp.ts` | HPスクレイピング（EUC-JP対応、Colormeオブジェクト解析） |
 | `scripts/ingest/blog.ts` | ブログ収集 + Claude APIトーン分析 |
 
 ## データベース（Supabase）
 
-9テーブル: `stories`, `templates`, `products`, `knowledge_sources`, `generation_logs`, `ingest_logs`, `stock_ideas`, `finished_contents`, `task_memos`
+10テーブル: `stories`, `templates`, `products`, `knowledge_sources`, `generation_logs`, `ingest_logs`, `stock_ideas`, `finished_contents`, `task_memos`, `output_templates`
 
 - `knowledge_sources`のcategoryフィールド（brand/tone/sample/feedback）がシステムプロンプトの各セクションに対応
 - `knowledge_sources`のsource_type制約: `hp`, `blog`, `mail`, `feedback`
@@ -130,6 +140,19 @@ APP_PASSWORD             # 共有ログインパスワード
 
 ### .dev.vars（Cloudflare Workers用、ランタイム環境変数）
 同じ5つの変数。ビルド時は`.env.local`、ランタイム時は`.dev.vars`（ローカル）またはCloudflareダッシュボードのSettings > Variables and Secrets（本番）が参照される。
+
+## 環境変数・認証情報の取り扱い
+
+本プロジェクトでは以下を絶対に守ること：
+
+- APIキー・パスワード・トークン等の機密情報は `.env.local` / `.dev.vars` / Cloudflareダッシュボード環境変数のみに保存する
+- リポジトリ内のあらゆるファイル（コード・コメント・ドキュメント）に機密情報を記載しない
+- サンプル値にはプレースホルダ（`xxx`等）を使い、実値は絶対に書かない
+- `NEXT_PUBLIC_*` 以外の環境変数はサーバーサイドのみで参照する
+- エラーメッセージ・ログ出力に機密情報を含めない
+- `.gitignore` から `.env.local` / `.dev.vars` を外さない
+
+これらは審査対象。PR時にチェックすること。
 
 ## 注意事項
 
