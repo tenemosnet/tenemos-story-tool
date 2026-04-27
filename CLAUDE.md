@@ -77,6 +77,13 @@ npm run ingest:blog → Seesaa記事取得 → knowledge_sourcesに保存
 - **テンプレート**（`/templates`）: 生成済みストーリーをテンプレートとして保存・再利用する機能。`templates`テーブル使用
 - **出力テンプレート**（`/output-templates`）: メール通信・WordPress記事変換用の汎用テンプレート管理基盤。`output_templates`テーブル使用。`structure_spec`（JSONB）でセクション構成・記事タイプ・メール固有設定等を柔軟に定義
 
+### テンプレート管理の運用フロー
+
+1. `docs/templates/*.md` がマスタ
+2. `npm run register-templates` で `output_templates` テーブルへ同期
+3. 管理UI（/output-templates）は閲覧・微調整用途
+4. 恒久的な変更は必ずMDファイル側で行う
+
 ### 認証
 
 Cookie方式の共有パスワード認証。`middleware.ts`が全ルートをガードし、`/login`と`/api/auth`のみスキップ。
@@ -103,6 +110,9 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 | `app/output-templates/page.tsx` | 出力テンプレート一覧・管理UI |
 | `app/api/output-templates/route.ts` | 出力テンプレートCRUD API |
 | `lib/types/output-template.ts` | 出力テンプレート関連型定義 |
+| `scripts/register-templates/index.ts` | テンプレートMD同期スクリプト |
+| `scripts/register-templates/parse-template-md.ts` | MDパーサー |
+| `docs/templates/` | テンプレートマスタデータディレクトリ |
 | `middleware.ts` | Cookie認証ガード |
 | `scripts/ingest/hp.ts` | HPスクレイピング（EUC-JP対応、Colormeオブジェクト解析） |
 | `scripts/ingest/blog.ts` | ブログ収集 + Claude APIトーン分析 |
