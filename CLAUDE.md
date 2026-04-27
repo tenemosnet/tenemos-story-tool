@@ -79,10 +79,13 @@ npm run ingest:blog → Seesaa記事取得 → knowledge_sourcesに保存
 
 ### テンプレート管理の運用フロー
 
-1. `docs/templates/*.md` がマスタ
+1. `docs/templates/*.md` がマスタデータ
 2. `npm run register-templates` で `output_templates` テーブルへ同期
-3. 管理UI（/output-templates）は閲覧・微調整用途
-4. 恒久的な変更は必ずMDファイル側で行う
+3. 管理UI（`/output-templates`）は閲覧・微調整用途
+4. **恒久的な変更は必ずMDファイル側で行う**
+5. 管理UIで編集した内容は、次回スクリプト実行時に上書きされる
+
+詳細は `docs/templates/README.md` 参照。
 
 ### 認証
 
@@ -114,12 +117,15 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 | `scripts/register-templates/parse-template-md.ts` | MDパーサー |
 | `docs/templates/` | テンプレートマスタデータディレクトリ |
 | `middleware.ts` | Cookie認証ガード |
+| `app/api/blog-stocks/route.ts` | ブログ記事ストック一覧API（月別/未予定フィルター） |
+| `app/api/blog-stocks/[id]/route.ts` | ブログ記事ストック単体取得・更新・削除API |
+| `lib/types/blog-stock.ts` | ブログ記事ストック関連型定義 |
 | `scripts/ingest/hp.ts` | HPスクレイピング（EUC-JP対応、Colormeオブジェクト解析） |
 | `scripts/ingest/blog.ts` | ブログ収集 + Claude APIトーン分析 |
 
 ## データベース（Supabase）
 
-10テーブル: `stories`, `templates`, `products`, `knowledge_sources`, `generation_logs`, `ingest_logs`, `stock_ideas`, `finished_contents`, `task_memos`, `output_templates`
+11テーブル: `stories`, `templates`, `products`, `knowledge_sources`, `generation_logs`, `ingest_logs`, `stock_ideas`, `finished_contents`, `task_memos`, `output_templates`, `blog_stocks`
 
 - `knowledge_sources`のcategoryフィールド（brand/tone/sample/feedback）がシステムプロンプトの各セクションに対応
 - `knowledge_sources`のsource_type制約: `hp`, `blog`, `mail`, `feedback`
@@ -127,6 +133,7 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 - `templates`テーブルは論理削除（`is_active`フラグ）
 - `stock_ideas`はネタストック（unused/used状態管理、storiesと紐づけ可能）
 - `finished_contents`は配信予定コンテンツ（LINE/メール種別、日付・完了管理）
+- `blog_stocks`はブログ記事ストック（WordPress記事変換結果、日付・完了管理、stories/stock_ideas/output_templatesへの参照）
 - `task_memos`はリマインダー（日付・完了フラグ）
 - スキーマ定義: `supabase/schema.sql`
 
@@ -136,6 +143,7 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 - `generation_logs.story_id` → `stories.id`
 - `stock_ideas.story_id` → `stories.id`
 - `finished_contents.story_id` → `stories.id`
+- `blog_stocks.story_id` → `stories.id`
 
 ## 環境変数
 
@@ -163,6 +171,15 @@ APP_PASSWORD             # 共有ログインパスワード
 - `.gitignore` から `.env.local` / `.dev.vars` を外さない
 
 これらは審査対象。PR時にチェックすること。
+
+### Supabase運用上の注意
+
+- 本プロジェクトはSupabase **無料プラン**で運用中
+- 無料プランでは **7日間アクセスがない場合、プロジェクトが停止**するリスクあり
+- **週次Cron（毎週日曜22時実行）が自動的にkeep-aliveとして機能**している
+  - ネタストックが0件の場合でも、Supabaseクエリが発生するため有効
+- Cronが停止する場合は、別途keep-alive手段を検討する必要がある
+- 復旧方法：Supabaseダッシュボードから手動で「Restore project」を実行
 
 ## 注意事項
 

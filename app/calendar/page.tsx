@@ -59,16 +59,25 @@ export default function CalendarPage() {
   const [stockEditBody, setStockEditBody] = useState('')
   const [stockScheduleDate, setStockScheduleDate] = useState('')
 
+  // ブログ記事ストック
+  type BlogStockItem = { id: string; title: string; body: string; article_type: string | null; output_format: string; scheduled_date: string | null; is_done: boolean }
+  const [blogStocks, setBlogStocks] = useState<BlogStockItem[]>([])
+  const [editingBlogStock, setEditingBlogStock] = useState<string | null>(null)
+  const [blogStockEditTitle, setBlogStockEditTitle] = useState('')
+  const [blogStockEditBody, setBlogStockEditBody] = useState('')
+  const [blogStockScheduleDate, setBlogStockScheduleDate] = useState('')
+
   const monthStr = `${year}-${String(month).padStart(2, '0')}`
   const todayStr = toDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate())
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [memosRes, contentsRes, stockRes] = await Promise.all([
+      const [memosRes, contentsRes, stockRes, blogStockRes] = await Promise.all([
         fetch(`/api/task-memos?include_done=false`),
         fetch(`/api/finished-contents?month=${monthStr}&include_done=false`),
         fetch(`/api/finished-contents?unscheduled=true`),
+        fetch(`/api/blog-stocks?unscheduled=true`),
       ])
       if (memosRes.ok) {
         const allMemos: TaskMemo[] = await memosRes.json()
@@ -79,6 +88,9 @@ export default function CalendarPage() {
       }
       if (stockRes.ok) {
         setMailStocks(await stockRes.json())
+      }
+      if (blogStockRes.ok) {
+        setBlogStocks(await blogStockRes.json())
       }
     } catch (error) {
       console.error('カレンダーデータ取得エラー:', error)
@@ -294,6 +306,46 @@ export default function CalendarPage() {
       fetchData()
     } catch (error) {
       console.error('ストック削除エラー:', error)
+    }
+  }
+
+  // ========== ブログ記事ストック操作 ==========
+
+  const startEditBlogStock = (s: BlogStockItem) => {
+    setEditingBlogStock(s.id)
+    setBlogStockEditTitle(s.title)
+    setBlogStockEditBody(s.body)
+    setBlogStockScheduleDate('')
+  }
+
+  const handleSaveBlogStock = async (id: string) => {
+    try {
+      const updates: Record<string, unknown> = { title: blogStockEditTitle, body: blogStockEditBody }
+      if (blogStockScheduleDate) {
+        updates.scheduled_date = blogStockScheduleDate
+      }
+      await fetch(`/api/blog-stocks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      setEditingBlogStock(null)
+      fetchData()
+    } catch (error) {
+      console.error('ブログストック更新エラー:', error)
+    }
+  }
+
+  const handleDeleteBlogStock = async (id: string) => {
+    if (!confirm('このブログ記事ストックを削除しますか？')) return
+    try {
+      await fetch(`/api/blog-stocks/${id}`, {
+        method: 'DELETE',
+      })
+      setEditingBlogStock(null)
+      fetchData()
+    } catch (error) {
+      console.error('ブログストック削除エラー:', error)
     }
   }
 
@@ -557,6 +609,109 @@ export default function CalendarPage() {
                   <CardContent className="pt-4 pb-4 text-center">
                     <p className="text-sm text-purple-400">📝 メール通信ストックはまだありません</p>
                     <p className="text-xs text-stone-400 mt-1">ストーリー生成 → メール通信原稿作成 → ストックに保存</p>
+                  </CardContent>
+                </Card>
+              )}
+              </div>
+
+              {/* ブログ記事ストック */}
+              <div id="blog-stock">
+              {blogStocks.length > 0 ? (
+                <Card className="mt-3 border-blue-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-blue-700">
+                      📰 ブログ記事ストック <span className="text-xs font-normal text-stone-400">({blogStocks.length}件)</span>
+                    </CardTitle>
+                    <p className="text-xs text-stone-400">日付未設定のブログ記事原稿。編集して配信予定に移動できます</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {blogStocks.map(s => (
+                      <div key={s.id} className="p-3 rounded-lg border border-blue-100 bg-blue-50/30 space-y-2 group">
+                        {editingBlogStock === s.id ? (
+                          <div className="space-y-2">
+                            <input
+                              value={blogStockEditTitle}
+                              onChange={(e) => setBlogStockEditTitle(e.target.value)}
+                              placeholder="タイトル"
+                              className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                            <textarea
+                              value={blogStockEditBody}
+                              onChange={(e) => setBlogStockEditBody(e.target.value)}
+                              placeholder="本文"
+                              rows={6}
+                              className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-y"
+                            />
+                            <div className="text-xs text-stone-400 text-right">{blogStockEditBody.length}文字</div>
+                            <div>
+                              <div className="text-xs text-stone-500 mb-1">投稿予定日を設定（任意：設定するとカレンダーに表示）</div>
+                              <input
+                                type="date"
+                                value={blogStockScheduleDate}
+                                onChange={(e) => setBlogStockScheduleDate(e.target.value)}
+                                className="text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveBlogStock(s.id)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                              >
+                                {blogStockScheduleDate ? '保存して投稿予定に移動' : '保存'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingBlogStock(null)}
+                                className="text-xs"
+                              >
+                                キャンセル
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-sm font-medium text-stone-700 line-clamp-1">{s.title}</span>
+                              <span className="text-xs text-blue-400 shrink-0">📰 ブログ</span>
+                            </div>
+                            {s.body && (
+                              <p className="text-xs text-stone-500 line-clamp-2">{s.body}</p>
+                            )}
+                            <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => startEditBlogStock(s)}
+                                className="text-xs text-blue-500 hover:text-blue-700"
+                              >
+                                ✏️ 編集・日付設定
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(`${s.title}\n\n${s.body}`)
+                                }}
+                                className="text-xs text-stone-400 hover:text-stone-600"
+                              >
+                                📋 コピー
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBlogStock(s.id)}
+                                className="text-xs text-red-400 hover:text-red-600"
+                              >
+                                ✕ 削除
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="mt-3 border-dashed border-blue-200 bg-blue-50/20">
+                  <CardContent className="pt-4 pb-4 text-center">
+                    <p className="text-sm text-blue-400">📰 ブログ記事ストックはまだありません</p>
+                    <p className="text-xs text-stone-400 mt-1">ストーリー生成 → ブログ記事原稿作成 → ストックに保存</p>
                   </CardContent>
                 </Card>
               )}

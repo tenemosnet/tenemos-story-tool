@@ -26,6 +26,7 @@ type NoticeData = {
   scheduled: ScheduledContent[]
   overdueMemos: TaskMemo[]
   overdueContents: ScheduledContent[]
+  unusedStockCount: number
 }
 
 function formatDate(dateStr: string) {
@@ -122,10 +123,12 @@ export default function NoticeBoard() {
 
   const hasOverdue = (data?.overdueMemos?.length ?? 0) + (data?.overdueContents?.length ?? 0) > 0
   const hasUpcoming = (data?.memos?.length ?? 0) + (data?.scheduled?.length ?? 0) > 0
-  const isEmpty = !hasOverdue && !hasUpcoming
+  const unusedStockCount = data?.unusedStockCount ?? 999
+  const hasStockWarning = unusedStockCount <= 2
+  const isEmpty = !hasOverdue && !hasUpcoming && !hasStockWarning
 
   return (
-    <Card className={`${hasOverdue ? 'border-red-300 bg-red-50/30' : 'border-blue-200 bg-blue-50/30'}`}>
+    <Card className={`${hasOverdue || hasStockWarning ? 'border-red-300 bg-red-50/30' : 'border-blue-200 bg-blue-50/30'}`}>
       <CardContent className="pt-5 pb-4 space-y-3">
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
@@ -201,6 +204,23 @@ export default function NoticeBoard() {
                 <span className="text-sm text-red-700 flex-1">{item.title}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ネタ残数警告 */}
+        {hasStockWarning && (
+          <div className="space-y-1.5">
+            <a
+              href="/calendar"
+              className="flex items-center gap-2 p-2 bg-red-100 rounded border border-red-200 hover:bg-red-150 transition-colors"
+            >
+              <span className="text-sm shrink-0">⚠</span>
+              <span className="text-sm text-red-700 flex-1">
+                自動生成ネタ残数：{unusedStockCount}件
+                {unusedStockCount === 0 ? ' 次回はスキップされます' : ' ストックを追加してください'}
+              </span>
+              <span className="text-xs text-red-400 shrink-0">→ 追加</span>
+            </a>
           </div>
         )}
 

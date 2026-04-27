@@ -210,6 +210,15 @@ export default function OutputTemplatesPage() {
       </header>
 
       <main className="max-w-4xl mx-auto p-6 space-y-6">
+        {/* 運用ルール注意書き */}
+        <div className="flex gap-3 p-4 rounded-lg border border-blue-200 bg-blue-50/50 text-sm text-stone-600">
+          <span className="text-blue-500 shrink-0">ℹ️</span>
+          <div>
+            <p>このテンプレートは <code className="text-xs bg-stone-100 px-1 py-0.5 rounded">docs/templates/&#123;slug&#125;.md</code> から同期されています。</p>
+            <p className="mt-1">恒久的な変更は MDファイル側で行い、<code className="text-xs bg-stone-100 px-1 py-0.5 rounded">npm run register-templates</code> を実行してください。この画面での編集は、次回同期時に上書きされる可能性があります。</p>
+          </div>
+        </div>
+
         {/* フィルター＋新規作成 */}
         <div className="flex items-center justify-between">
           <Tabs value={formatFilter} onValueChange={setFormatFilter}>

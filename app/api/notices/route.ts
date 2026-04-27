@@ -30,8 +30,8 @@ export async function GET() {
     if (memos.error) throw memos.error
     if (scheduled.error) throw scheduled.error
 
-    // 過期分（今日より前で未完了）も取得して警告表示用に
-    const [overdueMemos, overdueContents] = await Promise.all([
+    // 過期分（今日より前で未完了）＋ネタ残数も取得して警告表示用に
+    const [overdueMemos, overdueContents, unusedStock] = await Promise.all([
       supabase
         .from('task_memos')
         .select('*')
@@ -45,6 +45,10 @@ export async function GET() {
         .not('scheduled_date', 'is', null)
         .lt('scheduled_date', today)
         .order('scheduled_date', { ascending: true }),
+      supabase
+        .from('stock_ideas')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'unused'),
     ])
 
     return NextResponse.json({
@@ -52,6 +56,7 @@ export async function GET() {
       scheduled: scheduled.data ?? [],
       overdueMemos: overdueMemos.data ?? [],
       overdueContents: overdueContents.data ?? [],
+      unusedStockCount: unusedStock.count ?? 0,
     })
   } catch (error) {
     console.error('お知らせ取得エラー:', error)

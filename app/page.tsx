@@ -9,11 +9,12 @@ export const dynamic = 'force-dynamic'
 async function getStats() {
   const supabase = createServiceClient()
 
-  const [stories, templates, knowledge, mailStocks, latestAutoStory, unusedStock] = await Promise.all([
+  const [stories, templates, knowledge, mailStocks, blogStocks, latestAutoStory, unusedStock] = await Promise.all([
     supabase.from('stories').select('id', { count: 'exact', head: true }),
     supabase.from('templates').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('knowledge_sources').select('id', { count: 'exact', head: true }),
     supabase.from('finished_contents').select('id', { count: 'exact', head: true }).is('scheduled_date', null).eq('is_done', false),
+    supabase.from('blog_stocks').select('id', { count: 'exact', head: true }).is('scheduled_date', null).eq('is_done', false),
     supabase.from('stories').select('id, title, tone, theme, created_at').eq('length_setting', 400).order('created_at', { ascending: false }).limit(1),
     supabase.from('stock_ideas').select('id', { count: 'exact', head: true }).eq('status', 'unused'),
   ])
@@ -23,6 +24,7 @@ async function getStats() {
     templates: templates.count ?? 0,
     knowledge: knowledge.count ?? 0,
     mailStocks: mailStocks.count ?? 0,
+    blogStocks: blogStocks.count ?? 0,
     latestAutoStory: latestAutoStory.data?.[0] ?? null,
     unusedStock: unusedStock.count ?? 0,
   }
@@ -125,6 +127,18 @@ export default async function Home() {
             </Card>
           </Link>
 
+          <Link href="/calendar#blog-stock">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-blue-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-blue-600">📰 ブログ記事ストック</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-stone-800">{stats.blogStocks}件</div>
+                <p className="text-xs text-stone-400 mt-1">クリックで一覧を表示 →</p>
+              </CardContent>
+            </Card>
+          </Link>
+
           {/* 自動生成ストーリー */}
           <Link href="/stories">
             <Card className="hover:shadow-md transition-shadow cursor-pointer border-amber-200 bg-amber-50/30">
@@ -147,20 +161,6 @@ export default async function Home() {
             </Card>
           </Link>
 
-          {/* ネタストック残数 */}
-          <Card className={`hover:shadow-md transition-shadow ${stats.unusedStock <= 2 ? 'border-red-200 bg-red-50/30' : 'border-green-200 bg-green-50/30'}`}>
-            <CardHeader className="pb-2">
-              <CardTitle className={`text-sm font-medium ${stats.unusedStock <= 2 ? 'text-red-600' : 'text-green-700'}`}>
-                {stats.unusedStock <= 2 ? '⚠️' : '✅'} 自動生成ネタ残数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${stats.unusedStock <= 2 ? 'text-red-700' : 'text-stone-800'}`}>{stats.unusedStock}件</div>
-              <p className="text-xs text-stone-400 mt-1">
-                {stats.unusedStock === 0 ? '次回はスキップされます' : `あと約${stats.unusedStock}週間分`}
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* ネタストック */}
