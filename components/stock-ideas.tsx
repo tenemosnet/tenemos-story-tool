@@ -18,6 +18,7 @@ export default function StockIdeas() {
   const [inputText, setInputText] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [showInput, setShowInput] = useState(false)
 
   const fetchIdeas = useCallback(async () => {
@@ -78,6 +79,30 @@ export default function StockIdeas() {
     }
   }
 
+  const handleManualGenerate = async () => {
+    if (!confirm('未使用ネタの中で最も古いネタから1件、ストーリーを自動生成しますか？')) return
+    setIsGenerating(true)
+    try {
+      const res = await fetch('/api/cron/weekly-generate', { method: 'POST' })
+      const result = await res.json()
+      if (!res.ok) {
+        alert(`生成に失敗しました: ${result.error || '不明なエラー'}`)
+        return
+      }
+      if (result.status === 'skipped') {
+        alert('未使用ネタがありません')
+        return
+      }
+      alert(`生成完了！\nタイトル: ${result.title}\nネタ残数: ${result.stockRemaining}件`)
+      fetchIdeas()
+    } catch (error) {
+      console.error('手動生成エラー:', error)
+      alert('生成に失敗しました')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   // 入力行数をプレビュー表示
   const previewLines = inputText
     .split('\n')
@@ -95,14 +120,25 @@ export default function StockIdeas() {
               {isLoading ? '...' : `${ideas.length}件`}
             </span>
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowInput(!showInput)}
-            className="text-xs"
-          >
-            {showInput ? '閉じる' : '+ ネタ追加'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualGenerate}
+              disabled={isGenerating || isLoading || ideas.length === 0}
+              className="text-xs"
+            >
+              {isGenerating ? '生成中...' : '🤖 今すぐ生成'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowInput(!showInput)}
+              className="text-xs"
+            >
+              {showInput ? '閉じる' : '+ ネタ追加'}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

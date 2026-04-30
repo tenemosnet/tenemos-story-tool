@@ -52,43 +52,38 @@ async function sendNotification(payload: Record<string, unknown>) {
   }
 }
 
-export async function GET(request: NextRequest) {
-  // 認証チェック
-  if (!verifyCronSecret(request)) {
-    return NextResponse.json({ error: '認証エラー' }, { status: 401 })
+// 生成ロジック共通関数（Cron/手動共用）
+async function executeGeneration() {
+  const supabase = createServiceClient()
+
+  // ① 未使用ネタを1件取得（古い順）
+  const { data: unusedIdeas, error: ideasError } = await supabase
+    .from('stock_ideas')
+    .select('*')
+    .eq('status', 'unused')
+    .order('created_at', { ascending: true })
+    .limit(1)
+
+  if (ideasError) throw ideasError
+
+  // 未使用ネタの総数を取得
+  const { count: stockRemaining } = await supabase
+    .from('stock_ideas')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'unused')
+
+  // ② ネタがない場合
+  if (!unusedIdeas || unusedIdeas.length === 0) {
+    console.log('未使用ネタなし、スキップ')
+    await sendNotification({ type: 'no_stock', stockRemaining: 0 })
+    return { status: 'skipped', reason: 'ネタストックなし' }
   }
 
-  try {
-    const supabase = createServiceClient()
+  const idea = unusedIdeas[0]
+  const season = getSeasonInfo()
 
-    // ① 未使用ネタを1件取得（古い順）
-    const { data: unusedIdeas, error: ideasError } = await supabase
-      .from('stock_ideas')
-      .select('*')
-      .eq('status', 'unused')
-      .order('created_at', { ascending: true })
-      .limit(1)
-
-    if (ideasError) throw ideasError
-
-    // 未使用ネタの総数を取得
-    const { count: stockRemaining } = await supabase
-      .from('stock_ideas')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'unused')
-
-    // ② ネタがない場合
-    if (!unusedIdeas || unusedIdeas.length === 0) {
-      console.log('未使用ネタなし、スキップ')
-      await sendNotification({ type: 'no_stock', stockRemaining: 0 })
-      return NextResponse.json({ status: 'skipped', reason: 'ネタストックなし' })
-    }
-
-    const idea = unusedIdeas[0]
-    const season = getSeasonInfo()
-
-    // ③ Claude APIで記事生成
-    const systemPrompt = `あなたはテネモスネット（株式会社テネモスネット）のLINE公式アカウント用ストーリー配信コンテンツを作成するライターです。
+  // ③ Claude APIで記事生成
+  const systemPrompt = `あなたはテネモスネット（株式会社テネモスネット）のLINE公式アカウント用ストーリー配信コンテンツを作成するライターです。
 
 【ブランドについて】
 テネモスネットは「水・空気を活かす」をコンセプトに、自然の仕組みをお手本にした製品を開発・販売しています。
@@ -113,7 +108,7 @@ export async function GET(request: NextRequest) {
 以下のJSON形式のみ出力してください。他の文字は不要です：
 {"tone":"トーン名","title":"タイトル20字以内","body":"本文","hashtags":["タグ1","タグ2","タグ3"]}`
 
-    const userPrompt = `以下のネタを元に、LINE配信用のストーリーコンテンツを1つ作成してください。
+  const userPrompt = `以下のネタを元に、LINE配信用のストーリーコンテンツを1つ作成してください。
 
 【本日の日付】${season.date}（${season.season}）
 【季節の参考キーワード】${season.description}
@@ -124,84 +119,114 @@ export async function GET(request: NextRequest) {
 ※季節感のあるテーマの場合は、必ず今の時期に合った内容にしてください。
 JSONのみ出力してください。`
 
-    const modelUsed = MODELS.generate
-    const message = await callClaude({
-      model: modelUsed,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    })
+  const modelUsed = MODELS.generate
+  const message = await callClaude({
+    model: modelUsed,
+    max_tokens: 1024,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+  })
 
-    const responseText = message.content
-      .filter(block => block.type === 'text')
-      .map(block => block.text || '')
-      .join('')
+  const responseText = message.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text || '')
+    .join('')
 
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error('Claude応答からJSONを抽出できませんでした')
-    }
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) {
+    throw new Error('Claude応答からJSONを抽出できませんでした')
+  }
 
-    const storyData = JSON.parse(jsonMatch[0])
+  const storyData = JSON.parse(jsonMatch[0])
 
-    // ④ storiesテーブルに保存
-    const { data: story, error: storyError } = await supabase
-      .from('stories')
-      .insert({
-        theme: idea.content.substring(0, 50),
-        tone: storyData.tone,
-        title: storyData.title,
-        body: storyData.body,
-        hashtags: storyData.hashtags || [],
-        length_setting: 400,
-      })
-      .select()
-      .single()
-
-    if (storyError) throw storyError
-
-    // ⑤ generation_logを保存
-    await supabase.from('generation_logs').insert({
-      story_id: story.id,
-      model: modelUsed,
-      tokens_used: message.usage.input_tokens + message.usage.output_tokens,
-    })
-
-    // ⑥ stock_ideaをusedに更新
-    await supabase
-      .from('stock_ideas')
-      .update({ status: 'used', story_id: story.id })
-      .eq('id', idea.id)
-
-    const remainingAfter = (stockRemaining ?? 1) - 1
-
-    // ⑦ 完了メール送信
-    await sendNotification({
-      type: 'article_done',
-      title: storyData.title,
-      theme: idea.content,
+  // ④ storiesテーブルに保存
+  const { data: story, error: storyError } = await supabase
+    .from('stories')
+    .insert({
+      theme: idea.content.substring(0, 50),
       tone: storyData.tone,
-      preview: storyData.body.substring(0, 200) + '...',
-      stockRemaining: remainingAfter,
-    })
-
-    // ⑧ ネタ残り2件以下なら警告メール
-    if (remainingAfter <= 2 && remainingAfter > 0) {
-      await sendNotification({
-        type: 'stock_low',
-        stockRemaining: remainingAfter,
-      })
-    }
-
-    return NextResponse.json({
-      status: 'success',
       title: storyData.title,
-      storyId: story.id,
+      body: storyData.body,
+      hashtags: storyData.hashtags || [],
+      length_setting: 400,
+    })
+    .select()
+    .single()
+
+  if (storyError) throw storyError
+
+  // ⑤ generation_logを保存
+  await supabase.from('generation_logs').insert({
+    story_id: story.id,
+    model: modelUsed,
+    tokens_used: message.usage.input_tokens + message.usage.output_tokens,
+  })
+
+  // ⑥ stock_ideaをusedに更新
+  await supabase
+    .from('stock_ideas')
+    .update({ status: 'used', story_id: story.id })
+    .eq('id', idea.id)
+
+  const remainingAfter = (stockRemaining ?? 1) - 1
+
+  // ⑦ 完了メール送信
+  await sendNotification({
+    type: 'article_done',
+    title: storyData.title,
+    theme: idea.content,
+    tone: storyData.tone,
+    preview: storyData.body.substring(0, 200) + '...',
+    stockRemaining: remainingAfter,
+  })
+
+  // ⑧ ネタ残り2件以下なら警告メール
+  if (remainingAfter <= 2 && remainingAfter > 0) {
+    await sendNotification({
+      type: 'stock_low',
       stockRemaining: remainingAfter,
     })
+  }
 
+  return {
+    status: 'success',
+    title: storyData.title,
+    storyId: story.id,
+    stockRemaining: remainingAfter,
+  }
+}
+
+// Cronトリガー用（Bearer認証）
+export async function GET(request: NextRequest) {
+  if (!verifyCronSecret(request)) {
+    return NextResponse.json({ error: '認証エラー' }, { status: 401 })
+  }
+
+  try {
+    const result = await executeGeneration()
+    return NextResponse.json(result)
   } catch (error) {
     console.error('週次自動生成エラー:', error)
+    return NextResponse.json(
+      { error: '自動生成に失敗しました', detail: String(error) },
+      { status: 500 }
+    )
+  }
+}
+
+// 手動トリガー用（Cookie認証）
+export async function POST(request: NextRequest) {
+  // /api/cron/ はmiddlewareで認証スキップされるため、独自にCookieチェック
+  const token = request.cookies.get('auth-token')?.value
+  if (token !== 'authenticated') {
+    return NextResponse.json({ error: '認証エラー' }, { status: 401 })
+  }
+
+  try {
+    const result = await executeGeneration()
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('手動生成エラー:', error)
     return NextResponse.json(
       { error: '自動生成に失敗しました', detail: String(error) },
       { status: 500 }
