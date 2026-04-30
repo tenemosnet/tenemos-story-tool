@@ -83,12 +83,13 @@ export default function StockIdeas() {
     if (!confirm('未使用ネタの中で最も古いネタから1件、ストーリーを自動生成しますか？')) return
     setIsGenerating(true)
     try {
-      const res = await fetch('/api/cron/weekly-generate', { method: 'POST' })
-      const result = await res.json()
+      const res = await fetch('/api/cron/weekly-generate', { method: 'POST', credentials: 'same-origin' })
       if (!res.ok) {
-        alert(`生成に失敗しました: ${result.error || '不明なエラー'}`)
+        const text = await res.text()
+        alert(`生成に失敗しました (${res.status}): ${text}`)
         return
       }
+      const result = await res.json()
       if (result.status === 'skipped') {
         alert('未使用ネタがありません')
         return
