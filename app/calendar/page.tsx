@@ -576,7 +576,7 @@ export default function CalendarPage() {
                             {s.body && (
                               <p className="text-xs text-stone-500 line-clamp-2">{s.body}</p>
                             )}
-                            <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-2 pt-1">
                               <button
                                 onClick={() => startEditStock(s)}
                                 className="text-xs text-purple-500 hover:text-purple-700"
@@ -679,7 +679,7 @@ export default function CalendarPage() {
                             {s.body && (
                               <p className="text-xs text-stone-500 line-clamp-2">{s.body}</p>
                             )}
-                            <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-2 pt-1">
                               <a
                                 href={`/blog-stocks/${s.id}`}
                                 className="text-xs text-green-600 hover:text-green-800"
