@@ -680,6 +680,12 @@ export default function CalendarPage() {
                               <p className="text-xs text-stone-500 line-clamp-2">{s.body}</p>
                             )}
                             <div className="flex gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <a
+                                href={`/blog-stocks/${s.id}`}
+                                className="text-xs text-green-600 hover:text-green-800"
+                              >
+                                詳細を表示 →
+                              </a>
                               <button
                                 onClick={() => startEditBlogStock(s)}
                                 className="text-xs text-blue-500 hover:text-blue-700"

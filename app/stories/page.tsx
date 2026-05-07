@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
+import BlogTemplateSelectionModal from '@/components/blog-template-selection-modal'
 
 type Story = {
   id: string
@@ -33,7 +35,16 @@ function isCustomTheme(theme: string): boolean {
   return !PRESET_THEMES.includes(theme)
 }
 
+type WPTemplate = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  format: string
+}
+
 export default function StoriesPage() {
+  const router = useRouter()
   const [stories, setStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -41,6 +52,11 @@ export default function StoriesPage() {
   const [deleteMode, setDeleteMode] = useState(false)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+
+  // ブログ記事生成
+  const [blogModalOpen, setBlogModalOpen] = useState(false)
+  const [blogTargetId, setBlogTargetId] = useState<string | null>(null)
+  const [wpTemplates, setWpTemplates] = useState<WPTemplate[]>([])
 
   useEffect(() => {
     const fetchStories = async () => {
@@ -56,6 +72,20 @@ export default function StoriesPage() {
       }
     }
     fetchStories()
+  }, [])
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch('/api/output-templates')
+        if (!res.ok) return
+        const data: WPTemplate[] = await res.json()
+        setWpTemplates(data.filter(t => t.format === 'wordpress'))
+      } catch {
+        // ignore
+      }
+    }
+    fetchTemplates()
   }, [])
 
   const selectedStory = stories.find(s => s.id === selectedId)
@@ -465,6 +495,21 @@ export default function StoriesPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* ブログ記事原稿生成 */}
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-medium text-green-700 mb-1">📰 ブログ記事原稿を作成</h3>
+                      <p className="text-xs text-stone-400 mb-3">このストーリーをベースに、WordPressブログ記事の原稿を生成します</p>
+                      <Button
+                        onClick={() => {
+                          setBlogTargetId(selectedStory.id)
+                          setBlogModalOpen(true)
+                        }}
+                        className="w-full bg-green-700 hover:bg-green-800 text-white"
+                      >
+                        📰 ブログ記事原稿を生成
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ) : (
@@ -602,8 +647,36 @@ export default function StoriesPage() {
                   </div>
                 )}
               </div>
+
+              {/* ブログ記事原稿生成（モバイル） */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-medium text-green-700 mb-1">📰 ブログ記事原稿を作成</h3>
+                <Button
+                  onClick={() => {
+                    setBlogTargetId(selectedStory.id)
+                    setBlogModalOpen(true)
+                  }}
+                  className="w-full bg-green-700 hover:bg-green-800 text-white"
+                >
+                  📰 ブログ記事原稿を生成
+                </Button>
+              </div>
             </div>
           </div>
+        )}
+
+        {/* ブログ記事テンプレート選択モーダル */}
+        {blogModalOpen && blogTargetId && (
+          <BlogTemplateSelectionModal
+            storyId={blogTargetId}
+            storyBodyLength={stories.find(s => s.id === blogTargetId)?.body.length ?? 0}
+            templates={wpTemplates}
+            onClose={() => setBlogModalOpen(false)}
+            onGenerated={(blogStockId) => {
+              setBlogModalOpen(false)
+              router.push(`/blog-stocks/${blogStockId}`)
+            }}
+          />
         )}
       </main>
     </div>

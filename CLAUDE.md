@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-テネモスネットのLINE配信・メール通信向けコンテンツ生成ツール（v4.0）。Claude APIでストーリーを自動生成し、HP・ブログから収集したナレッジとユーザーフィードバックで品質を継続的に向上させる。生成したストーリーからメール通信原稿への変換、配信スケジュール管理、ネタストック機能も備える。
+テネモスネットのLINE配信・メール通信向けコンテンツ生成ツール（v4.2）。Claude APIでストーリーを自動生成し、HP・ブログから収集したナレッジとユーザーフィードバックで品質を継続的に向上させる。生成したストーリーからメール通信原稿・WordPress記事原稿への変換、配信スケジュール管理、ネタストック機能も備える。
 
 ## 開発コマンド
 
@@ -70,6 +70,43 @@ npm run ingest:blog → Seesaa記事取得 → knowledge_sourcesに保存
                     → Claude APIバッチ分析(10件ずつ) → brand情報・tone規定を自動生成
 ```
 
+### 週次自動生成 + 手動生成
+
+```
+Cloudflare Cron Trigger（毎週日曜22:00 UTC = 月曜7:00 JST）
+  → cron-worker/worker.js（Service Binding経由）
+  → GET /api/cron/weekly-generate（Bearer CRON_SECRET認証）
+  → stock_ideas から未使用ネタ1件取得（古い順）
+  → Claude API で約400字ストーリー生成
+  → stories + generation_logs 保存、stock_ideas を used に更新
+  → GAS Webhook でメール通知（完了 + 残数≤2件で警告）
+
+手動トリガー（ダッシュボード「🤖 今すぐ生成」ボタン）
+  → POST /api/cron/weekly-generate（Cookie auth-token認証）
+  → 同じ executeGeneration() を実行
+```
+
+- `/api/cron/` パスは `middleware.ts` でCookie認証スキップ。Cronは Bearer認証、手動はPOSTハンドラ内でCookieチェック
+- `cron-worker/` は別Cloudflare Worker（`tenemos-story-cron`）。`wrangler.jsonc` で設定
+
+### ブログ記事生成の仕組み
+
+1. ユーザーが `/stories` でブログ記事生成ボタンをクリック
+2. テンプレート選択モーダルで3種から選択（`/api/blog-stocks/suggest-template` で自動推奨）
+3. `/api/generate-blog` で変換実行
+   - `lib/converters/blog.ts` の `generateBlogArticle()` を呼び出し
+   - テンプレートの `system_prompt` + ナレッジソースで完全プロンプト構築
+   - Claude API へリクエスト（`callClaude()` fetch直接、Workers互換）
+4. 結果を `blog_stocks` にINSERT、生成履歴を `blog_generation_history` に保存
+5. `/blog-stocks/[id]` へ遷移してプレビュー表示
+
+### 再生成の仕組み
+
+- プレビュー画面で再生成フォーム入力
+- `parent_history_id` を指定して `/api/generate-blog` をPOST
+- 既存ストックを上書き（PATCH）、新規履歴をINSERT
+- 履歴は系譜（`parent_history_id`）で辿れる
+
 ### テンプレート管理
 
 2種類のテンプレート機能がある：
@@ -89,8 +126,8 @@ npm run ingest:blog → Seesaa記事取得 → knowledge_sourcesに保存
 
 ### 認証
 
-Cookie方式の共有パスワード認証。`middleware.ts`が全ルートをガードし、`/login`と`/api/auth`のみスキップ。
-curlテスト時は `-b "auth-token=authenticated"` を付与。
+Cookie方式の共有パスワード認証。`middleware.ts`が全ルートをガードし、`/login`、`/api/auth`、`/api/cron/`をスキップ。
+`/api/cron/`は独自のBearer認証（`CRON_SECRET`）で保護。curlテスト時は `-b "auth-token=authenticated"` を付与。
 
 ### 主要ファイル
 
@@ -116,9 +153,21 @@ curlテスト時は `-b "auth-token=authenticated"` を付与。
 | `scripts/register-templates/index.ts` | テンプレートMD同期スクリプト |
 | `scripts/register-templates/parse-template-md.ts` | MDパーサー |
 | `docs/templates/` | テンプレートマスタデータディレクトリ |
-| `middleware.ts` | Cookie認証ガード |
+| `app/api/cron/weekly-generate/route.ts` | 週次自動生成API（GET=Cron用Bearer認証、POST=手動用Cookie認証） |
+| `cron-worker/worker.js` | Cron Worker（Scheduled + 手動/trigger エンドポイント） |
+| `cron-worker/wrangler.jsonc` | Cron Worker設定（スケジュール、Service Binding） |
+| `components/stock-ideas.tsx` | ネタストックUI（一覧・追加・削除・手動生成ボタン） |
+| `components/notice-board.tsx` | お知らせ欄（リマインダー・配信予定・ネタ残数警告） |
+| `middleware.ts` | Cookie認証ガード（`/api/cron/`はスキップ） |
 | `app/api/blog-stocks/route.ts` | ブログ記事ストック一覧API（月別/未予定フィルター） |
 | `app/api/blog-stocks/[id]/route.ts` | ブログ記事ストック単体取得・更新・削除API |
+| `app/api/blog-stocks/[id]/history/route.ts` | ブログ記事生成履歴取得API |
+| `app/api/blog-stocks/suggest-template/route.ts` | テンプレート自動推奨API（ストーリーのトーン判定） |
+| `app/api/generate-blog/route.ts` | ブログ記事生成API（初回・再生成共通） |
+| `app/blog-stocks/[id]/page.tsx` | ブログ記事プレビュー画面（HTML表示・再生成・履歴） |
+| `lib/converters/blog.ts` | ブログ記事変換ロジック（generateBlogArticle, suggestTemplate） |
+| `lib/types/blog-generation.ts` | ブログ生成関連型定義（BlogGenerationHistory等） |
+| `components/blog-template-selection-modal.tsx` | テンプレート選択モーダル（3種選択・おすすめ表示） |
 | `lib/types/blog-stock.ts` | ブログ記事ストック関連型定義 |
 | `scripts/ingest/hp.ts` | HPスクレイピング（EUC-JP対応、Colormeオブジェクト解析） |
 | `scripts/ingest/blog.ts` | ブログ収集 + Claude APIトーン分析 |
@@ -154,10 +203,21 @@ NEXT_PUBLIC_SUPABASE_URL # Supabaseプロジェクトurl
 NEXT_PUBLIC_SUPABASE_ANON_KEY  # 公開キー
 SUPABASE_SERVICE_ROLE_KEY      # サーバー専用キー（クライアントに露出させない）
 APP_PASSWORD             # 共有ログインパスワード
+CRON_SECRET              # 週次自動生成のBearer認証キー
+GAS_WEBHOOK_URL          # Google Apps Script通知用URL（任意）
+GAS_WEBHOOK_SECRET       # GAS通知用シークレット（任意）
 ```
 
+### 料金計算関連（オプション、デフォルト値あり）
+```
+CLAUDE_PRICE_INPUT       # USD per 1M tokens（既定: 3.0）
+CLAUDE_PRICE_OUTPUT      # USD per 1M tokens（既定: 15.0）
+JPY_PER_USD              # 円/ドルレート（既定: 150）
+```
+公式の最新料金は https://docs.claude.com で確認すること。
+
 ### .dev.vars（Cloudflare Workers用、ランタイム環境変数）
-同じ5つの変数。ビルド時は`.env.local`、ランタイム時は`.dev.vars`（ローカル）またはCloudflareダッシュボードのSettings > Variables and Secrets（本番）が参照される。
+同じ変数群。ビルド時は`.env.local`、ランタイム時は`.dev.vars`（ローカル）またはCloudflareダッシュボードのSettings > Variables and Secrets（本番）が参照される。
 
 ## 環境変数・認証情報の取り扱い
 
