@@ -16,7 +16,7 @@
 - Next.js 14 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
 - Claude API — モデルは `lib/config.ts` で一元管理（デフォルト: `claude-sonnet-4-6` / premium: `claude-opus-4-7`）
 - Supabase (PostgreSQL)
-- Vercel
+- Cloudflare Pages（`@opennextjs/cloudflare` 経由）
 
 ## セキュリティ上の注意
 
@@ -51,5 +51,5 @@ npm run dev           # 開発サーバー（http://localhost:3000）
 npm run build         # ビルド
 npm run ingest:hp     # HPスクレイピング
 npm run ingest:blog   # ブログ収集+トーン分析
-npx vercel --prod     # 本番デプロイ
+npm run deploy:cf     # 本番デプロイ（Cloudflare Pages）
 ```
