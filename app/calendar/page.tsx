@@ -450,7 +450,7 @@ export default function CalendarPage() {
                                 key={c.id}
                                 className={`text-[10px] leading-tight px-1 rounded truncate ${
                                   c.is_done
-                                    ? 'bg-stone-100 text-stone-400 line-through'
+                                    ? 'text-stone-400'
                                     : c.type === 'line'
                                     ? 'bg-green-100 text-green-700'
                                     : 'bg-purple-100 text-purple-700'
