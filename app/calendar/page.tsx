@@ -75,7 +75,7 @@ export default function CalendarPage() {
     try {
       const [memosRes, contentsRes, stockRes, blogStockRes] = await Promise.all([
         fetch(`/api/task-memos?include_done=false`),
-        fetch(`/api/finished-contents?month=${monthStr}&include_done=false`),
+        fetch(`/api/finished-contents?month=${monthStr}&include_done=true`),
         fetch(`/api/finished-contents?unscheduled=true`),
         fetch(`/api/blog-stocks?unscheduled=true`),
       ])
@@ -449,12 +449,14 @@ export default function CalendarPage() {
                               <div
                                 key={c.id}
                                 className={`text-[10px] leading-tight px-1 rounded truncate ${
-                                  c.type === 'line'
+                                  c.is_done
+                                    ? 'bg-stone-100 text-stone-400 line-through'
+                                    : c.type === 'line'
                                     ? 'bg-green-100 text-green-700'
                                     : 'bg-purple-100 text-purple-700'
                                 }`}
                               >
-                                {c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
+                                {c.is_done ? '✅' : c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
                               </div>
                             ))}
                             {dayData.memos.slice(0, Math.max(0, 2 - dayData.contents.length)).map(m => (
@@ -742,11 +744,11 @@ export default function CalendarPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {/* 配信予定 */}
-                    {selectedDayData?.contents && selectedDayData.contents.length > 0 && (
+                    {/* 配信予定（未完了） */}
+                    {selectedDayData?.contents && selectedDayData.contents.filter(c => !c.is_done).length > 0 && (
                       <div className="space-y-2">
                         <h4 className="text-xs font-medium text-stone-500">配信予定</h4>
-                        {selectedDayData.contents.map(c => (
+                        {selectedDayData.contents.filter(c => !c.is_done).map(c => (
                           <div key={c.id} className="p-2 rounded border border-stone-100 space-y-2 group">
                             {editingContent === c.id ? (
                               // 編集モード
@@ -817,7 +819,7 @@ export default function CalendarPage() {
                                     onClick={() => handleDoneContent(c.id)}
                                     className="text-xs text-green-500 hover:text-green-700"
                                   >
-                                    ✓ 完了
+                                    ✓ 配信済みにする
                                   </button>
                                   <button
                                     onClick={() => handleDeleteContent(c.id)}
@@ -828,6 +830,47 @@ export default function CalendarPage() {
                                 </div>
                               </>
                             )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 配信済み記録 */}
+                    {selectedDayData?.contents && selectedDayData.contents.filter(c => c.is_done).length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-medium text-stone-400">配信済み記録</h4>
+                        {selectedDayData.contents.filter(c => c.is_done).map(c => (
+                          <div key={c.id} className="p-2 rounded border border-stone-100 bg-stone-50 space-y-1 group">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs px-1.5 py-0.5 rounded shrink-0 bg-stone-100 text-stone-400">
+                                ✅ {c.type === 'line' ? 'LINE' : 'メール'}
+                              </span>
+                              <span className="text-sm text-stone-400 line-through flex-1">{c.title}</span>
+                            </div>
+                            {c.body && (
+                              <p className="text-xs text-stone-400 line-clamp-2">{c.body}</p>
+                            )}
+                            <div className="flex gap-2 pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={async () => {
+                                  await fetch('/api/finished-contents', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: c.id, is_done: false }),
+                                  })
+                                  fetchData()
+                                }}
+                                className="text-xs text-stone-400 hover:text-stone-600"
+                              >
+                                ↩ 取り消し
+                              </button>
+                              <button
+                                onClick={() => handleDeleteContent(c.id)}
+                                className="text-xs text-red-300 hover:text-red-500"
+                              >
+                                ✕ 削除
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -864,6 +907,10 @@ export default function CalendarPage() {
                     {/* 何もない場合 */}
                     {(!selectedDayData || (selectedDayData.memos.length === 0 && selectedDayData.contents.length === 0)) && (
                       <p className="text-sm text-stone-400">この日の予定はありません</p>
+                    )}
+                    {/* 配信済みのみの場合 */}
+                    {selectedDayData && selectedDayData.memos.length === 0 && selectedDayData.contents.length > 0 && selectedDayData.contents.every(c => c.is_done) && (
+                      <p className="text-sm text-stone-400">未完了の予定はありません</p>
                     )}
 
                     {/* リマインダー追加 */}
