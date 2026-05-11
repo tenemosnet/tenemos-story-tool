@@ -333,7 +333,7 @@ function GeneratePageContent() {
             </CardHeader>
             <CardContent>
               <div className="flex gap-2">
-                {[200, 400, 600].map(len => (
+                {[200, 400, 600, 1000].map(len => (
                   <button
                     key={len}
                     onClick={() => setLength(len)}
