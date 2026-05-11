@@ -1,5 +1,12 @@
 // Claude API fetch wrapper（Cloudflare Workers互換）
 
+export class ClaudeCreditError extends Error {
+  constructor() {
+    super('CLAUDE_CREDIT_EMPTY')
+    this.name = 'ClaudeCreditError'
+  }
+}
+
 interface ClaudeMessage {
   role: 'user' | 'assistant'
   content: string
@@ -38,6 +45,9 @@ export async function callClaude({
 
   if (!response.ok) {
     const errorBody = await response.text()
+    if (errorBody.includes('credit balance is too low') || errorBody.includes('Your credit balance')) {
+      throw new ClaudeCreditError()
+    }
     throw new Error(`Claude API error (${response.status}): ${errorBody}`)
   }
 

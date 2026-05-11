@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { generateBlogArticle } from '@/lib/converters/blog'
 import { calculateCostUsd, convertUsdToJpy } from '@/lib/config'
+import { ClaudeCreditError } from '@/lib/claude'
 
 export async function POST(request: NextRequest) {
   try {
@@ -130,6 +131,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('ブログ記事生成エラー:', error)
+    if (error instanceof ClaudeCreditError) {
+      return NextResponse.json(
+        { error: '⚠️ Claude APIのクレジットが不足しています。console.anthropic.com の「Plans & Billing」でチャージしてください。' },
+        { status: 402 }
+      )
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '生成に失敗しました' },
       { status: 500 }
