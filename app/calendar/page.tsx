@@ -456,7 +456,7 @@ export default function CalendarPage() {
                                     : 'bg-purple-100 text-purple-700'
                                 }`}
                               >
-                                {c.is_done ? '✅' : c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
+                                {c.is_done ? `✅ ${c.type === 'line' ? 'LINE' : 'メール'}` : c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
                               </div>
                             ))}
                             {dayData.memos.slice(0, Math.max(0, 2 - dayData.contents.length)).map(m => (
