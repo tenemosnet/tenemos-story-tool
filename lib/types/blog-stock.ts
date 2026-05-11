@@ -9,6 +9,8 @@ export type BlogStock = {
   output_format: 'html' | 'markdown'
   scheduled_date: string | null
   is_done: boolean
+  wp_post_id: number | null
+  wp_post_url: string | null
   created_at: string
   updated_at: string
 }

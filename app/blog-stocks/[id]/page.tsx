@@ -154,6 +154,12 @@ export default function BlogStockDetailPage({
   // コピー完了フラグ
   const [copied, setCopied] = useState(false)
 
+  // WP投稿
+  const [wpPosting, setWpPosting] = useState(false)
+  const [wpError, setWpError] = useState<string | null>(null)
+  const [showWpForm, setShowWpForm] = useState(false)
+  const [wpSlug, setWpSlug] = useState('')
+
   const fetchData = useCallback(async () => {
     try {
       const [stockRes, historyRes] = await Promise.all([
@@ -210,6 +216,27 @@ export default function BlogStockDetailPage({
     await navigator.clipboard.writeText(stock.body)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleWpPublish = async () => {
+    setWpPosting(true)
+    setWpError(null)
+    try {
+      const res = await fetch(`/api/blog-stocks/${params.id}/publish-wp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: wpSlug.trim() || undefined }),
+      })
+      const data = await res.json() as { wp_post_id?: number; wp_post_url?: string; error?: string }
+      if (!res.ok) throw new Error(data.error ?? 'WordPress投稿に失敗しました')
+      setShowWpForm(false)
+      setWpSlug('')
+      await fetchData()
+    } catch (err) {
+      setWpError(err instanceof Error ? err.message : 'WordPress投稿に失敗しました')
+    } finally {
+      setWpPosting(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -328,6 +355,79 @@ export default function BlogStockDetailPage({
           >
             🗑 削除
           </Button>
+        </div>
+
+        {/* WordPress 投稿エリア */}
+        <div className="border rounded-lg p-4 space-y-3 bg-white">
+          {stock.wp_post_id ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href={stock.wp_post_url ?? '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md px-3 py-2 transition-colors"
+                >
+                  ✅ 下書き投稿済み → 編集画面を開く ↗
+                </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShowWpForm(v => !v); setWpError(null) }}
+                >
+                  🔄 再投稿（更新）
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => { setShowWpForm(v => !v); setWpError(null) }}
+            >
+              📤 WordPressに下書き投稿
+            </Button>
+          )}
+
+          {showWpForm && (
+            <div className="space-y-3 border-t pt-3">
+              <div>
+                <label className="text-sm text-stone-600 block mb-1">
+                  WordPressスラッグ（URL用、任意）
+                </label>
+                <input
+                  type="text"
+                  placeholder="例：mana-water-lifestyle-tips"
+                  value={wpSlug}
+                  onChange={e => setWpSlug(e.target.value)}
+                  className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400"
+                />
+                <p className="text-xs text-stone-400 mt-1">
+                  半角英数・ハイフンのみ。空欄の場合はWordPressが自動設定します。
+                </p>
+              </div>
+              {wpError && (
+                <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{wpError}</p>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShowWpForm(false); setWpSlug(''); setWpError(null) }}
+                  disabled={wpPosting}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleWpPublish}
+                  disabled={wpPosting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {wpPosting ? '投稿中...' : '投稿実行'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 再生成フォーム */}

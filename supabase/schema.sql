@@ -138,6 +138,8 @@ CREATE TABLE blog_stocks (
   output_format   TEXT NOT NULL DEFAULT 'html',
   scheduled_date  DATE,
   is_done         BOOLEAN NOT NULL DEFAULT FALSE,
+  wp_post_id      INTEGER DEFAULT NULL,
+  wp_post_url     TEXT DEFAULT NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -145,3 +147,10 @@ CREATE TABLE blog_stocks (
 CREATE INDEX idx_blog_stocks_scheduled ON blog_stocks(scheduled_date) WHERE is_done = FALSE;
 CREATE INDEX idx_blog_stocks_story ON blog_stocks(story_id);
 CREATE INDEX idx_blog_stocks_template ON blog_stocks(template_id);
+
+-- アプリ設定（WordPress接続設定など）
+CREATE TABLE app_settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
