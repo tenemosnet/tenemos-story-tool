@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const modelUsed = MODELS.generate
     const message = await callClaude({
       model: modelUsed,
-      max_tokens: 1024,
+      max_tokens: length >= 1000 ? 2048 : 1024,
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt },
