@@ -39,7 +39,7 @@ export default async function Home() {
       <header className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <div>
-            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v4.3</span></h1>
+            <h1 className="text-xl font-bold text-stone-800">🌿 テネモス ストーリーツール <span className="text-xs font-normal text-stone-400">v5.0</span></h1>
             <p className="text-sm text-stone-500 mt-0.5">LINE配信コンテンツ生成</p>
           </div>
           <div className="flex items-center gap-4">
