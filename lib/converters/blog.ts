@@ -168,24 +168,13 @@ export async function generateBlogArticle(params: {
     params.parentHistory?.generated_body
   )
 
-  // Claude API 呼び出し（リトライ1回）
-  let response
-  try {
-    response = await callClaude({
-      model: MODELS.generate,
-      max_tokens: 4096,
-      system: fullPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    })
-  } catch {
-    // 1回リトライ
-    response = await callClaude({
-      model: MODELS.generate,
-      max_tokens: 4096,
-      system: fullPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    })
-  }
+  // Claude API 呼び出し
+  const response = await callClaude({
+    model: MODELS.generate,
+    max_tokens: 4096,
+    system: fullPrompt,
+    messages: [{ role: 'user', content: userMessage }],
+  })
 
   const rawText = response.content.find(c => c.type === 'text')?.text ?? ''
 

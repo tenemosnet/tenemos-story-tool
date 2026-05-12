@@ -23,33 +23,25 @@ export async function buildSystemPrompt(): Promise<string> {
       ).join('\n\n')
     }
 
-    // ナレッジデータを取得（ブランド情報・トーン規定など）
-    const { data: knowledge } = await supabase
-      .from('knowledge_sources')
-      .select('*')
-      .order('collected_at', { ascending: false })
+    // ナレッジデータを取得（カテゴリ別に件数制限して取得）
+    const [brandRes, toneRes, sampleRes, feedbackRes] = await Promise.all([
+      supabase.from('knowledge_sources').select('content').eq('category', 'brand').order('collected_at', { ascending: false }).limit(5),
+      supabase.from('knowledge_sources').select('content').eq('category', 'tone').order('collected_at', { ascending: false }).limit(3),
+      supabase.from('knowledge_sources').select('content').eq('category', 'sample').order('collected_at', { ascending: false }).limit(5),
+      supabase.from('knowledge_sources').select('content').eq('category', 'feedback').order('collected_at', { ascending: false }).limit(10),
+    ])
 
-    if (knowledge && knowledge.length > 0) {
-      const brandKnowledge = knowledge.filter(k => k.category === 'brand')
-      const toneKnowledge = knowledge.filter(k => k.category === 'tone')
-      const sampleKnowledge = knowledge.filter(k => k.category === 'sample')
-
-      if (brandKnowledge.length > 0) {
-        knowledgeSection += `\n\n【ブランド情報】\n${brandKnowledge.map(k => k.content).join('\n')}`
-      }
-      if (toneKnowledge.length > 0) {
-        knowledgeSection += `\n\n【トーン規定】\n${toneKnowledge.map(k => k.content).join('\n')}`
-      }
-      if (sampleKnowledge.length > 0) {
-        knowledgeSection += `\n\n【参考原稿】\n以下は過去の良い配信原稿の例です。トーンや構成を参考にしてください。\n${sampleKnowledge.map(k => k.content).join('\n---\n')}`
-      }
-
-      // フィードバックデータを取得（直近20件）
-      const feedbackKnowledge = knowledge.filter(k => k.category === 'feedback')
-      if (feedbackKnowledge.length > 0) {
-        const recentFeedback = feedbackKnowledge.slice(0, 20)
-        knowledgeSection += `\n\n【過去のフィードバック】\n以下はスタッフからの修正指示・改善要望です。同じ傾向の指摘は重点的に反映してください。\n${recentFeedback.map(k => k.content).join('\n---\n')}`
-      }
+    if ((brandRes.data ?? []).length > 0) {
+      knowledgeSection += `\n\n【ブランド情報】\n${(brandRes.data ?? []).map(k => k.content).join('\n')}`
+    }
+    if ((toneRes.data ?? []).length > 0) {
+      knowledgeSection += `\n\n【トーン規定】\n${(toneRes.data ?? []).map(k => k.content).join('\n')}`
+    }
+    if ((sampleRes.data ?? []).length > 0) {
+      knowledgeSection += `\n\n【参考原稿】\n以下は過去の良い配信原稿の例です。トーンや構成を参考にしてください。\n${(sampleRes.data ?? []).map(k => k.content.slice(0, 1000)).join('\n---\n')}`
+    }
+    if ((feedbackRes.data ?? []).length > 0) {
+      knowledgeSection += `\n\n【過去のフィードバック】\n以下はスタッフからの修正指示・改善要望です。同じ傾向の指摘は重点的に反映してください。\n${(feedbackRes.data ?? []).map(k => k.content).join('\n---\n')}`
     }
   } catch (error) {
     console.error('ナレッジ取得エラー:', error)
