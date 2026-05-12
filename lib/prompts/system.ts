@@ -24,11 +24,12 @@ export async function buildSystemPrompt(): Promise<string> {
     }
 
     // ナレッジデータを取得（カテゴリ別に件数制限して取得）
-    const [brandRes, toneRes, sampleRes, feedbackRes] = await Promise.all([
+    const [brandRes, toneRes, sampleRes, feedbackRes, diaryRes] = await Promise.all([
       supabase.from('knowledge_sources').select('content').eq('category', 'brand').order('collected_at', { ascending: false }).limit(5),
       supabase.from('knowledge_sources').select('content').eq('category', 'tone').order('collected_at', { ascending: false }).limit(3),
       supabase.from('knowledge_sources').select('content').eq('category', 'sample').order('collected_at', { ascending: false }).limit(5),
       supabase.from('knowledge_sources').select('content').eq('category', 'feedback').order('collected_at', { ascending: false }).limit(10),
+      supabase.from('knowledge_sources').select('id, content').eq('category', '日記').limit(100),
     ])
 
     if ((brandRes.data ?? []).length > 0) {
@@ -39,6 +40,13 @@ export async function buildSystemPrompt(): Promise<string> {
     }
     if ((sampleRes.data ?? []).length > 0) {
       knowledgeSection += `\n\n【参考原稿】\n以下は過去の良い配信原稿の例です。トーンや構成を参考にしてください。\n${(sampleRes.data ?? []).map(k => k.content.slice(0, 1000)).join('\n---\n')}`
+    }
+    // 日記カテゴリ（ブログ記事）からランダム4件をブログ文体の参考として追加
+    const diaryAll = diaryRes.data ?? []
+    if (diaryAll.length > 0) {
+      const shuffled = [...diaryAll].sort(() => Math.random() - 0.5)
+      const diaryPick = shuffled.slice(0, 4)
+      knowledgeSection += `\n\n【ブログ記事文体の参考】\n以下は過去のブログ記事です。この文体・リズム・語り口を参考にしてください。\n${diaryPick.map(k => k.content.slice(0, 800)).join('\n---\n')}`
     }
     if ((feedbackRes.data ?? []).length > 0) {
       knowledgeSection += `\n\n【過去のフィードバック】\n以下はスタッフからの修正指示・改善要望です。同じ傾向の指摘は重点的に反映してください。\n${(feedbackRes.data ?? []).map(k => k.content).join('\n---\n')}`
