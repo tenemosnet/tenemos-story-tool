@@ -62,6 +62,10 @@ export default function CalendarPage() {
   // ブログ記事ストック
   type BlogStockItem = { id: string; title: string; body: string; article_type: string | null; output_format: string; scheduled_date: string | null; is_done: boolean }
   const [blogStocks, setBlogStocks] = useState<BlogStockItem[]>([])
+
+  // LINE配信シリーズ
+  type LineDistItem = { id: string; total_parts: number; splitting_style: string; is_done: boolean[]; scheduled_dates: (string | null)[]; created_at: string }
+  const [lineDistributions, setLineDistributions] = useState<LineDistItem[]>([])
   const [editingBlogStock, setEditingBlogStock] = useState<string | null>(null)
   const [blogStockEditTitle, setBlogStockEditTitle] = useState('')
   const [blogStockEditBody, setBlogStockEditBody] = useState('')
@@ -73,11 +77,12 @@ export default function CalendarPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [memosRes, contentsRes, stockRes, blogStockRes] = await Promise.all([
+      const [memosRes, contentsRes, stockRes, blogStockRes, lineDistRes] = await Promise.all([
         fetch(`/api/task-memos?include_done=false`),
         fetch(`/api/finished-contents?month=${monthStr}&include_done=true`),
         fetch(`/api/finished-contents?unscheduled=true`),
         fetch(`/api/blog-stocks?unscheduled=true`),
+        fetch(`/api/line-distributions`),
       ])
       if (memosRes.ok) {
         const allMemos: TaskMemo[] = await memosRes.json()
@@ -91,6 +96,10 @@ export default function CalendarPage() {
       }
       if (blogStockRes.ok) {
         setBlogStocks(await blogStockRes.json())
+      }
+      if (lineDistRes.ok) {
+        const lineData = await lineDistRes.json()
+        setLineDistributions(lineData.line_distributions ?? [])
       }
     } catch (error) {
       console.error('カレンダーデータ取得エラー:', error)
@@ -720,6 +729,65 @@ export default function CalendarPage() {
                   <CardContent className="pt-4 pb-4 text-center">
                     <p className="text-sm text-blue-400">📰 ブログ記事ストックはまだありません</p>
                     <p className="text-xs text-stone-400 mt-1">ストーリー生成 → ブログ記事原稿作成 → ストックに保存</p>
+                  </CardContent>
+                </Card>
+              )}
+              </div>
+
+              {/* LINE配信シリーズ */}
+              <div id="line-distributions">
+              {lineDistributions.length > 0 ? (
+                <Card className="mt-3 border-teal-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-teal-700">
+                      📱 LINE配信シリーズ <span className="text-xs font-normal text-stone-400">({lineDistributions.length}件)</span>
+                    </CardTitle>
+                    <p className="text-xs text-stone-400">詳細ページで各回の配信予定日・完了管理ができます</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {lineDistributions.map(d => {
+                      const doneCount = d.is_done.filter(Boolean).length
+                      const allDone = doneCount === d.total_parts
+                      return (
+                        <div key={d.id} className={`p-3 rounded-lg border border-teal-100 bg-teal-50/30 space-y-1 ${allDone ? 'opacity-60' : ''}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-teal-700">
+                                {d.total_parts}分割 / {d.splitting_style}
+                              </span>
+                              <span className="text-xs text-stone-400">
+                                {doneCount}/{d.total_parts}配信済み
+                              </span>
+                            </div>
+                            <a
+                              href={`/line-distributions/${d.id}`}
+                              className="text-xs text-teal-600 hover:text-teal-800 shrink-0"
+                            >
+                              詳細 →
+                            </a>
+                          </div>
+                          <div className="flex gap-1 flex-wrap">
+                            {d.scheduled_dates.map((date, i) => (
+                              <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                d.is_done[i] ? 'bg-stone-100 text-stone-400' : 'bg-teal-100 text-teal-700'
+                              }`}>
+                                {d.is_done[i] ? '✅' : `第${i + 1}回`}{date ? ` ${date.slice(5).replace('-', '/')}` : ''}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-xs text-stone-400">
+                            作成: {new Date(d.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="mt-3 border-dashed border-teal-200 bg-teal-50/20">
+                  <CardContent className="pt-4 pb-4 text-center">
+                    <p className="text-sm text-teal-400">📱 LINE配信シリーズはまだありません</p>
+                    <p className="text-xs text-stone-400 mt-1">ストーリー生成 → LINE配信用に分割</p>
                   </CardContent>
                 </Card>
               )}

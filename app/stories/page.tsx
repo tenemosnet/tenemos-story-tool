@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import BlogTemplateSelectionModal from '@/components/blog-template-selection-modal'
+import LineSplitModal from '@/components/line-split-modal'
 
 type Story = {
   id: string
@@ -56,6 +57,10 @@ export default function StoriesPage() {
   // ブログ記事生成
   const [blogModalOpen, setBlogModalOpen] = useState(false)
   const [blogTargetId, setBlogTargetId] = useState<string | null>(null)
+
+  // LINE配信用分割
+  const [lineSplitModalOpen, setLineSplitModalOpen] = useState(false)
+  const [lineSplitTargetId, setLineSplitTargetId] = useState<string | null>(null)
   const [wpTemplates, setWpTemplates] = useState<WPTemplate[]>([])
 
   useEffect(() => {
@@ -510,6 +515,21 @@ export default function StoriesPage() {
                         📰 ブログ記事原稿を生成
                       </Button>
                     </div>
+
+                    {/* LINE配信用分割 */}
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-medium text-teal-700 mb-1">📱 LINE配信用に分割</h3>
+                      <p className="text-xs text-stone-400 mb-3">ストーリーを300字×複数回の連載形式に分割します</p>
+                      <Button
+                        onClick={() => {
+                          setLineSplitTargetId(selectedStory.id)
+                          setLineSplitModalOpen(true)
+                        }}
+                        className="w-full bg-teal-700 hover:bg-teal-800 text-white"
+                      >
+                        📱 LINE配信用に分割
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ) : (
@@ -661,6 +681,20 @@ export default function StoriesPage() {
                   📰 ブログ記事原稿を生成
                 </Button>
               </div>
+
+              {/* LINE配信用分割（モバイル） */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-medium text-teal-700 mb-1">📱 LINE配信用に分割</h3>
+                <Button
+                  onClick={() => {
+                    setLineSplitTargetId(selectedStory.id)
+                    setLineSplitModalOpen(true)
+                  }}
+                  className="w-full bg-teal-700 hover:bg-teal-800 text-white"
+                >
+                  📱 LINE配信用に分割
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -675,6 +709,18 @@ export default function StoriesPage() {
             onGenerated={(blogStockId) => {
               setBlogModalOpen(false)
               router.push(`/blog-stocks/${blogStockId}`)
+            }}
+          />
+        )}
+
+        {/* LINE配信分割モーダル */}
+        {lineSplitModalOpen && lineSplitTargetId && (
+          <LineSplitModal
+            storyId={lineSplitTargetId}
+            onClose={() => setLineSplitModalOpen(false)}
+            onComplete={(lineDistributionId) => {
+              setLineSplitModalOpen(false)
+              router.push(`/line-distributions/${lineDistributionId}`)
             }}
           />
         )}

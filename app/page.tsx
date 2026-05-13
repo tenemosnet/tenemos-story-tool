@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 async function getStats() {
   const supabase = createServiceClient()
 
-  const [stories, templates, knowledge, mailStocks, blogStocks, latestAutoStory, unusedStock] = await Promise.all([
+  const [stories, templates, knowledge, mailStocks, blogStocks, latestAutoStory, unusedStock, lineDistributions] = await Promise.all([
     supabase.from('stories').select('id', { count: 'exact', head: true }),
     supabase.from('templates').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('knowledge_sources').select('id', { count: 'exact', head: true }),
@@ -17,6 +17,7 @@ async function getStats() {
     supabase.from('blog_stocks').select('id', { count: 'exact', head: true }).is('scheduled_date', null).eq('is_done', false),
     supabase.from('stories').select('id, title, tone, theme, created_at').eq('length_setting', 400).order('created_at', { ascending: false }).limit(1),
     supabase.from('stock_ideas').select('id', { count: 'exact', head: true }).eq('status', 'unused'),
+    supabase.from('line_distributions').select('id', { count: 'exact', head: true }),
   ])
 
   return {
@@ -27,6 +28,7 @@ async function getStats() {
     blogStocks: blogStocks.count ?? 0,
     latestAutoStory: latestAutoStory.data?.[0] ?? null,
     unusedStock: unusedStock.count ?? 0,
+    lineDistributions: lineDistributions.count ?? 0,
   }
 }
 
@@ -162,6 +164,18 @@ export default async function Home() {
                   <p className="text-sm text-stone-400">まだ自動生成はありません</p>
                 )}
                 <p className="text-xs text-amber-600 mt-2">ネタストック残: {stats.unusedStock}件</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/calendar#line-distributions">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer border-teal-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-teal-600">📱 LINE配信シリーズ</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-stone-800">{stats.lineDistributions}件</div>
+                <p className="text-xs text-stone-400 mt-1">クリックで一覧を表示 →</p>
               </CardContent>
             </Card>
           </Link>
