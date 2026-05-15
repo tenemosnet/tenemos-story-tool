@@ -106,6 +106,54 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-2xl mx-auto p-6 space-y-6">
+        {/* 管理ツール */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">管理ツール</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <a
+              href="/templates"
+              className="flex items-center justify-between p-3 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📑</span>
+                <div>
+                  <p className="text-sm font-medium text-stone-800">テンプレート管理</p>
+                  <p className="text-xs text-stone-400">保存したストーリーテンプレートの閲覧・再利用・削除</p>
+                </div>
+              </div>
+              <span className="text-stone-400 text-sm">→</span>
+            </a>
+            <a
+              href="/knowledge"
+              className="flex items-center justify-between p-3 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📚</span>
+                <div>
+                  <p className="text-sm font-medium text-stone-800">ナレッジ管理</p>
+                  <p className="text-xs text-stone-400">ナレッジと商品データの閲覧・管理</p>
+                </div>
+              </div>
+              <span className="text-stone-400 text-sm">→</span>
+            </a>
+            <a
+              href="/output-templates"
+              className="flex items-center justify-between p-3 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🗂️</span>
+                <div>
+                  <p className="text-sm font-medium text-stone-800">出力テンプレート管理</p>
+                  <p className="text-xs text-stone-400">メール通信・WordPress記事変換テンプレートの管理</p>
+                </div>
+              </div>
+              <span className="text-stone-400 text-sm">→</span>
+            </a>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">WordPress 接続設定</CardTitle>
