@@ -19,6 +19,9 @@ type Story = {
   length_setting: number | null
   product_id: string | null
   created_at: string
+  blog_stocks: { id: string; created_at: string }[]
+  line_distributions: { id: string; created_at: string }[]
+  finished_contents: { id: string; type: string; created_at: string }[]
 }
 
 const TONE_EMOJI: Record<string, string> = {
@@ -53,6 +56,7 @@ export default function StoriesPage() {
   const [deleteMode, setDeleteMode] = useState(false)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+  const [channelFilter, setChannelFilter] = useState<'email_unused' | 'blog_unused' | 'line_unused' | null>(null)
 
   // ブログ記事生成
   const [blogModalOpen, setBlogModalOpen] = useState(false)
@@ -101,9 +105,20 @@ export default function StoriesPage() {
     return acc
   }, {} as Record<string, number>)
 
-  const filteredStories = toneFilter === 'all'
-    ? stories
-    : stories.filter(s => s.tone === toneFilter)
+  const filteredStories = stories
+    .filter(s => toneFilter === 'all' || s.tone === toneFilter)
+    .filter(s => {
+      if (!channelFilter) return true
+      if (channelFilter === 'email_unused') return !s.finished_contents.some(fc => fc.type === 'email')
+      if (channelFilter === 'blog_unused') return s.blog_stocks.length === 0
+      if (channelFilter === 'line_unused') return s.line_distributions.length === 0
+      return true
+    })
+
+  // 未変換カウント
+  const emailUnusedCount = stories.filter(s => !s.finished_contents.some(fc => fc.type === 'email')).length
+  const blogUnusedCount = stories.filter(s => s.blog_stocks.length === 0).length
+  const lineUnusedCount = stories.filter(s => s.line_distributions.length === 0).length
 
   // メール通信原稿状態
   const [mailResult, setMailResult] = useState<{ subject: string; body: string; summary: string } | null>(null)
@@ -163,6 +178,7 @@ export default function StoriesPage() {
           title: mailEditingSubject,
           body: mailEditingBody,
           type: 'email',
+          story_id: selectedStory?.id ?? null,
         }),
       })
       if (!res.ok) throw new Error('保存失敗')
@@ -288,6 +304,28 @@ export default function StoriesPage() {
                 ))}
               </div>
 
+              {/* チャンネルフィルター */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-stone-400">未変換:</span>
+                {([
+                  { key: 'email_unused' as const, label: '📧 メール', count: emailUnusedCount },
+                  { key: 'blog_unused' as const, label: '📰 ブログ', count: blogUnusedCount },
+                  { key: 'line_unused' as const, label: '📱 LINE', count: lineUnusedCount },
+                ]).map(({ key, label, count }) => (
+                  <button
+                    key={key}
+                    onClick={() => setChannelFilter(prev => prev === key ? null : key)}
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                      channelFilter === key
+                        ? 'bg-amber-100 border-amber-400 text-amber-800 font-semibold'
+                        : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                    }`}
+                  >
+                    {label} ({count})
+                  </button>
+                ))}
+              </div>
+
               {/* ストーリーリスト */}
               <div className="space-y-2">
                 {filteredStories.map(story => (
@@ -332,6 +370,21 @@ export default function StoriesPage() {
                       <p className="text-sm font-medium text-stone-800 truncate">
                         {story.title}
                       </p>
+                      {/* 使用状況バッジ */}
+                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                        {([
+                          { used: story.finished_contents.some(fc => fc.type === 'email'), label: '📧', activeClass: 'bg-purple-100 text-purple-700 border-purple-200', },
+                          { used: story.blog_stocks.length > 0, label: '📰', activeClass: 'bg-green-100 text-green-700 border-green-200', },
+                          { used: story.line_distributions.length > 0, label: '📱', activeClass: 'bg-teal-100 text-teal-700 border-teal-200', },
+                        ]).map(({ used, label, activeClass }) => (
+                          <span
+                            key={label}
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs border ${used ? activeClass : 'bg-stone-50 text-stone-300 border-stone-100'}`}
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
                       <p className="text-xs text-stone-400 mt-1">
                         {new Date(story.created_at).toLocaleDateString('ja-JP', {
                           year: 'numeric',
@@ -381,6 +434,29 @@ export default function StoriesPage() {
                     <CardTitle className="text-lg mt-2">{selectedStory.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* 使用状況 */}
+                    <div className="bg-stone-50 rounded-lg p-3 space-y-2">
+                      <h3 className="text-xs font-semibold text-stone-500 tracking-wide">使用状況</h3>
+                      <div className="space-y-1.5">
+                        {([
+                          { label: '📧 メール通信', record: selectedStory.finished_contents.find(fc => fc.type === 'email'), activeClass: 'text-purple-700' },
+                          { label: '📰 ブログ記事', record: selectedStory.blog_stocks[0] ?? null, activeClass: 'text-green-700' },
+                          { label: '📱 LINE配信', record: selectedStory.line_distributions[0] ?? null, activeClass: 'text-teal-700' },
+                        ]).map(({ label, record, activeClass }) => (
+                          <div key={label} className="flex items-center justify-between text-xs">
+                            <span className={record ? activeClass : 'text-stone-400'}>{label}</span>
+                            {record ? (
+                              <span className="text-stone-500">
+                                {new Date(record.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })} 変換済み
+                              </span>
+                            ) : (
+                              <span className="text-stone-300">未変換</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">
                       {selectedStory.body}
                     </p>

@@ -10,7 +10,7 @@ export async function GET() {
     const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('stories')
-      .select('*')
+      .select('*, blog_stocks(id, created_at), line_distributions(id, created_at), finished_contents(id, type, created_at)')
       .order('created_at', { ascending: false })
 
     if (error) throw error

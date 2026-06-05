@@ -458,14 +458,12 @@ export default function CalendarPage() {
                               <div
                                 key={c.id}
                                 className={`text-[10px] leading-tight px-1 rounded truncate ${
-                                  c.is_done
-                                    ? 'text-stone-400'
-                                    : c.type === 'line'
+                                  c.type === 'line'
                                     ? 'bg-green-100 text-green-700'
                                     : 'bg-purple-100 text-purple-700'
                                 }`}
                               >
-                                {c.is_done ? `✅ ${c.type === 'line' ? 'LINE' : 'メール'}` : c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
+                                {c.is_done ? `✓ ${c.type === 'line' ? 'LINE' : 'メール'}` : c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
                               </div>
                             ))}
                             {dayData.memos.slice(0, Math.max(0, 2 - dayData.contents.length)).map(m => (
