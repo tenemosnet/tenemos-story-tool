@@ -6,6 +6,7 @@ import { MODELS } from '@/lib/config'
 // メール通信原稿のシステムプロンプトを構築
 async function buildMailSystemPrompt(): Promise<string> {
   let mailSamples = ''
+  let feedbackSection = ''
 
   try {
     const supabase = createServiceClient()
@@ -22,6 +23,18 @@ async function buildMailSystemPrompt(): Promise<string> {
       mailSamples = mailKnowledge.map(k =>
         `件名: ${k.title}\n${k.content?.slice(0, 500) || ''}${(k.content?.length || 0) > 500 ? '...' : ''}`
       ).join('\n---\n')
+    }
+
+    // 過去のフィードバック（編集差分学習を含む）を取得
+    const { data: feedbackKnowledge } = await supabase
+      .from('knowledge_sources')
+      .select('content')
+      .eq('category', 'feedback')
+      .order('collected_at', { ascending: false })
+      .limit(10)
+
+    if (feedbackKnowledge && feedbackKnowledge.length > 0) {
+      feedbackSection = feedbackKnowledge.map(k => k.content).join('\n---\n')
     }
   } catch (error) {
     console.error('メールナレッジ取得エラー:', error)
@@ -46,6 +59,8 @@ LINE配信よりも長文で、以下のような構成が一般的です：
 - 適度に改行を入れ、読みやすくする
 
 ${mailSamples ? `【過去のテネモス通信の例】\n以下は実際に配信された過去のテネモス通信です。文体・構成・雰囲気を参考にしてください。\n${mailSamples}` : ''}
+
+${feedbackSection ? `【過去のフィードバック】\n以下はスタッフからの修正指示・改善要望です。メール通信原稿にも同様の改善を適用してください。\n${feedbackSection}` : ''}
 
 【出力形式】
 以下のJSON形式のみ出力してください。他の文字は不要です：

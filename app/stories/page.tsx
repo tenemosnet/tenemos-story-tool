@@ -134,6 +134,7 @@ export default function StoriesPage() {
     setMailNotes('')
     setMailTargetId(null)
     setMailStockSaved(false)
+    setFeedbackLearned(false)
   }, [selectedId])
 
   const handleGenerateMail = async (story: Story) => {
@@ -167,6 +168,7 @@ export default function StoriesPage() {
   }
 
   const [mailStockSaved, setMailStockSaved] = useState(false)
+  const [feedbackLearned, setFeedbackLearned] = useState(false)
 
   const handleSaveMailToStock = async () => {
     if (!mailResult) return
@@ -183,6 +185,23 @@ export default function StoriesPage() {
       })
       if (!res.ok) throw new Error('保存失敗')
       setMailStockSaved(true)
+
+      // 差分がある場合、改善ポイントを自動分析（非同期、失敗しても無視）
+      if (mailEditingBody !== mailResult.body) {
+        fetch('/api/analyze-edit-diff', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            originalBody: mailResult.body,
+            editedBody: mailEditingBody,
+            subject: mailEditingSubject,
+            storyId: selectedStory?.id ?? null,
+          }),
+        })
+          .then(r => r.json())
+          .then(data => { if (data.success) setFeedbackLearned(true) })
+          .catch(() => {})
+      }
     } catch {
       alert('ストックへの保存に失敗しました')
     }
@@ -565,10 +584,15 @@ export default function StoriesPage() {
                                 ✓ 保存済み → 一覧を見る
                               </a>
                             )}
+                            {feedbackLearned && (
+                              <span className="inline-flex items-center text-xs font-medium text-green-600">
+                                ✨ 改善ポイントを学習しました
+                              </span>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => { setMailResult(null); setMailTargetId(null); setMailStockSaved(false) }}
+                              onClick={() => { setMailResult(null); setMailTargetId(null); setMailStockSaved(false); setFeedbackLearned(false) }}
                             >
                               🔄 再生成
                             </Button>
@@ -736,7 +760,12 @@ export default function StoriesPage() {
                           ✓ 保存済み → 一覧を見る
                         </a>
                       )}
-                      <Button variant="outline" size="sm" onClick={() => { setMailResult(null); setMailTargetId(null); setMailStockSaved(false) }}>
+                      {feedbackLearned && (
+                        <span className="inline-flex items-center text-xs font-medium text-green-600">
+                          ✨ 改善ポイントを学習しました
+                        </span>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => { setMailResult(null); setMailTargetId(null); setMailStockSaved(false); setFeedbackLearned(false) }}>
                         🔄 再生成
                       </Button>
                     </div>

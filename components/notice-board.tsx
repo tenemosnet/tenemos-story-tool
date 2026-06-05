@@ -27,6 +27,7 @@ type NoticeData = {
   overdueMemos: TaskMemo[]
   overdueContents: ScheduledContent[]
   unusedStockCount: number
+  editDiffFeedbackCount: number
 }
 
 function formatDate(dateStr: string) {
@@ -125,10 +126,12 @@ export default function NoticeBoard() {
   const hasUpcoming = (data?.memos?.length ?? 0) + (data?.scheduled?.length ?? 0) > 0
   const unusedStockCount = data?.unusedStockCount ?? 999
   const hasStockWarning = unusedStockCount <= 2
-  const isEmpty = !hasOverdue && !hasUpcoming && !hasStockWarning
+  const editDiffFeedbackCount = data?.editDiffFeedbackCount ?? 0
+  const hasFeedbackWarning = editDiffFeedbackCount >= 10
+  const isEmpty = !hasOverdue && !hasUpcoming && !hasStockWarning && !hasFeedbackWarning
 
   return (
-    <Card className={`${hasOverdue || hasStockWarning ? 'border-red-300 bg-red-50/30' : 'border-blue-200 bg-blue-50/30'}`}>
+    <Card className={`${hasOverdue || hasStockWarning ? 'border-red-300 bg-red-50/30' : hasFeedbackWarning ? 'border-amber-300 bg-amber-50/30' : 'border-blue-200 bg-blue-50/30'}`}>
       <CardContent className="pt-5 pb-4 space-y-3">
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
@@ -220,6 +223,22 @@ export default function NoticeBoard() {
                 {unusedStockCount === 0 ? ' 次回はスキップされます' : ' ストックを追加してください'}
               </span>
               <span className="text-xs text-red-400 shrink-0">→ 追加</span>
+            </a>
+          </div>
+        )}
+
+        {/* 差分学習フィードバック件数警告 */}
+        {hasFeedbackWarning && (
+          <div className="space-y-1.5">
+            <a
+              href="/knowledge"
+              className="flex items-center gap-2 p-2 bg-amber-100 rounded border border-amber-200 hover:bg-amber-150 transition-colors"
+            >
+              <span className="text-sm shrink-0">⚠</span>
+              <span className="text-sm text-amber-800 flex-1">
+                学習フィードバックが{editDiffFeedbackCount}件に達しました — 棚卸し（統合・整理）を検討してください
+              </span>
+              <span className="text-xs text-amber-500 shrink-0">→ 確認</span>
             </a>
           </div>
         )}
