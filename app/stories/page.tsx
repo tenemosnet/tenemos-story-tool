@@ -308,9 +308,9 @@ export default function StoriesPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-stone-400">未変換:</span>
                 {([
-                  { key: 'email_unused' as const, label: '📧 メール', count: emailUnusedCount },
-                  { key: 'blog_unused' as const, label: '📰 ブログ', count: blogUnusedCount },
-                  { key: 'line_unused' as const, label: '📱 LINE', count: lineUnusedCount },
+                  { key: 'email_unused' as const, label: 'メール', count: emailUnusedCount },
+                  { key: 'blog_unused' as const, label: 'ブログ', count: blogUnusedCount },
+                  { key: 'line_unused' as const, label: 'LINE', count: lineUnusedCount },
                 ]).map(({ key, label, count }) => (
                   <button
                     key={key}
@@ -373,13 +373,13 @@ export default function StoriesPage() {
                       {/* 使用状況バッジ */}
                       <div className="flex gap-1.5 mt-1.5 flex-wrap">
                         {([
-                          { used: story.finished_contents.some(fc => fc.type === 'email'), label: '📧', activeClass: 'bg-purple-100 text-purple-700 border-purple-200', },
-                          { used: story.blog_stocks.length > 0, label: '📰', activeClass: 'bg-green-100 text-green-700 border-green-200', },
-                          { used: story.line_distributions.length > 0, label: '📱', activeClass: 'bg-teal-100 text-teal-700 border-teal-200', },
+                          { used: story.finished_contents.some(fc => fc.type === 'email'), label: 'メール', activeClass: 'bg-purple-100 text-purple-700 border-purple-200' },
+                          { used: story.blog_stocks.length > 0, label: 'ブログ', activeClass: 'bg-green-100 text-green-700 border-green-200' },
+                          { used: story.line_distributions.length > 0, label: 'LINE', activeClass: 'bg-teal-100 text-teal-700 border-teal-200' },
                         ]).map(({ used, label, activeClass }) => (
                           <span
                             key={label}
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs border ${used ? activeClass : 'bg-stone-50 text-stone-300 border-stone-100'}`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] leading-tight ${used ? `border ${activeClass} font-medium` : 'border border-dashed border-stone-200 text-stone-300'}`}
                           >
                             {label}
                           </span>
@@ -439,12 +439,12 @@ export default function StoriesPage() {
                       <h3 className="text-xs font-semibold text-stone-500 tracking-wide">使用状況</h3>
                       <div className="space-y-1.5">
                         {([
-                          { label: '📧 メール通信', record: selectedStory.finished_contents.find(fc => fc.type === 'email'), activeClass: 'text-purple-700' },
-                          { label: '📰 ブログ記事', record: selectedStory.blog_stocks[0] ?? null, activeClass: 'text-green-700' },
-                          { label: '📱 LINE配信', record: selectedStory.line_distributions[0] ?? null, activeClass: 'text-teal-700' },
-                        ]).map(({ label, record, activeClass }) => (
+                          { label: 'メール通信', record: selectedStory.finished_contents.find(fc => fc.type === 'email'), activeClass: 'text-purple-700', badgeClass: 'bg-purple-100 text-purple-700 border-purple-200' },
+                          { label: 'ブログ記事', record: selectedStory.blog_stocks[0] ?? null, activeClass: 'text-green-700', badgeClass: 'bg-green-100 text-green-700 border-green-200' },
+                          { label: 'LINE配信', record: selectedStory.line_distributions[0] ?? null, activeClass: 'text-teal-700', badgeClass: 'bg-teal-100 text-teal-700 border-teal-200' },
+                        ]).map(({ label, record, badgeClass }) => (
                           <div key={label} className="flex items-center justify-between text-xs">
-                            <span className={record ? activeClass : 'text-stone-400'}>{label}</span>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] leading-tight ${record ? `border ${badgeClass} font-medium` : 'border border-dashed border-stone-200 text-stone-300'}`}>{label}</span>
                             {record ? (
                               <span className="text-stone-500">
                                 {new Date(record.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })} 変換済み
