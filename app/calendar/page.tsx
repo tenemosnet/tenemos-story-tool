@@ -50,9 +50,9 @@ export default function CalendarPage() {
   const [newMemoContent, setNewMemoContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [dragOverDate, setDragOverDate] = useState<string | null>(null)
-  const [editingContent, setEditingContent] = useState<string | null>(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [editBody, setEditBody] = useState('')
+  const [editModalContent, setEditModalContent] = useState<FinishedContent | null>(null)
+  const [editModalTitle, setEditModalTitle] = useState('')
+  const [editModalBody, setEditModalBody] = useState('')
   const [feedbackLearning, setFeedbackLearning] = useState<string | null>(null)
   const [feedbackResult, setFeedbackResult] = useState<Record<string, 'success' | 'error'>>({})
 
@@ -240,7 +240,7 @@ export default function CalendarPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      setEditingContent(null)
+      setEditModalContent(null)
       fetchData()
     } catch (error) {
       console.error('削除エラー:', error)
@@ -261,19 +261,20 @@ export default function CalendarPage() {
   }
 
   const startEditContent = (c: FinishedContent) => {
-    setEditingContent(c.id)
-    setEditTitle(c.title)
-    setEditBody(c.body)
+    setEditModalContent(c)
+    setEditModalTitle(c.title)
+    setEditModalBody(c.body)
   }
 
-  const handleSaveContent = async (id: string) => {
+  const handleSaveContent = async () => {
+    if (!editModalContent) return
     try {
       await fetch('/api/finished-contents', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, title: editTitle, body: editBody }),
+        body: JSON.stringify({ id: editModalContent.id, title: editModalTitle, body: editModalBody }),
       })
-      setEditingContent(null)
+      setEditModalContent(null)
       fetchData()
     } catch (error) {
       console.error('更新エラー:', error)
@@ -843,50 +844,6 @@ export default function CalendarPage() {
                         <h4 className="text-xs font-medium text-stone-500">配信予定</h4>
                         {selectedDayData.contents.filter(c => !c.is_done).map(c => (
                           <div key={c.id} className="p-2 rounded border border-stone-100 space-y-2 group">
-                            {editingContent === c.id ? (
-                              // 編集モード
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
-                                    c.type === 'line' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
-                                  }`}>
-                                    {c.type === 'line' ? 'LINE' : 'メール'}
-                                  </span>
-                                </div>
-                                <input
-                                  value={editTitle}
-                                  onChange={(e) => setEditTitle(e.target.value)}
-                                  placeholder="タイトル"
-                                  className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                />
-                                <textarea
-                                  value={editBody}
-                                  onChange={(e) => setEditBody(e.target.value)}
-                                  placeholder="配信内容（あとで入力してもOK）"
-                                  rows={4}
-                                  className="w-full text-sm rounded border border-stone-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-                                />
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleSaveContent(c.id)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                                  >
-                                    保存
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setEditingContent(null)}
-                                    className="text-xs"
-                                  >
-                                    キャンセル
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              // 表示モード
-                              <>
                                 <div className="flex items-center gap-2">
                                   <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
                                     c.type === 'line' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
@@ -896,7 +853,7 @@ export default function CalendarPage() {
                                   <span className="text-sm font-medium text-stone-700 flex-1">{c.title}</span>
                                 </div>
                                 {c.body && (
-                                  <p className="text-xs text-stone-500 whitespace-pre-wrap">{c.body}</p>
+                                  <p className="text-xs text-stone-500 whitespace-pre-wrap line-clamp-3">{c.body}</p>
                                 )}
                                 {!c.body && (
                                   <p className="text-xs text-stone-300 italic">内容未設定（クリックで編集）</p>
@@ -936,8 +893,6 @@ export default function CalendarPage() {
                                     ✕ 削除
                                   </button>
                                 </div>
-                              </>
-                            )}
                           </div>
                         ))}
                       </div>
@@ -1078,6 +1033,56 @@ export default function CalendarPage() {
           </div>
         )}
       </main>
+
+      {/* 配信コンテンツ編集モーダル */}
+      {editModalContent && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditModalContent(null) }}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-stone-800">
+                ✏️ {editModalContent.type === 'email' ? 'メール' : 'LINE'}通信を編集
+              </h2>
+              <button
+                onClick={() => setEditModalContent(null)}
+                className="text-stone-400 hover:text-stone-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <input
+              value={editModalTitle}
+              onChange={(e) => setEditModalTitle(e.target.value)}
+              placeholder="タイトル"
+              className="w-full text-sm rounded border border-stone-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            />
+            <textarea
+              value={editModalBody}
+              onChange={(e) => setEditModalBody(e.target.value)}
+              placeholder="配信内容"
+              rows={16}
+              className="w-full text-sm rounded border border-stone-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-1 min-h-[200px] resize-y"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-stone-400">{editModalBody.length}文字</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setEditModalContent(null)}>
+                  キャンセル
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveContent}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  保存
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
