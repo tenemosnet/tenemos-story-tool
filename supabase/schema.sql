@@ -89,6 +89,7 @@ CREATE TABLE finished_contents (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
+  original_body TEXT,
   type TEXT NOT NULL CHECK (type IN ('line', 'email')),
   stock_idea_id UUID REFERENCES stock_ideas(id),
   story_id UUID REFERENCES stories(id),

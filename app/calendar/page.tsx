@@ -16,7 +16,9 @@ type FinishedContent = {
   id: string
   title: string
   body: string
+  original_body: string | null
   type: 'line' | 'email'
+  story_id: string | null
   scheduled_date: string | null
   is_done: boolean
 }
@@ -51,6 +53,8 @@ export default function CalendarPage() {
   const [editingContent, setEditingContent] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editBody, setEditBody] = useState('')
+  const [feedbackLearning, setFeedbackLearning] = useState<string | null>(null)
+  const [feedbackResult, setFeedbackResult] = useState<Record<string, 'success' | 'error'>>({})
 
   // メール通信ストック
   const [mailStocks, setMailStocks] = useState<FinishedContent[]>([])
@@ -273,6 +277,29 @@ export default function CalendarPage() {
       fetchData()
     } catch (error) {
       console.error('更新エラー:', error)
+    }
+  }
+
+  const handleLearnFeedback = async (c: FinishedContent) => {
+    if (!c.original_body || c.original_body === c.body) return
+    setFeedbackLearning(c.id)
+    try {
+      const res = await fetch('/api/analyze-edit-diff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originalBody: c.original_body,
+          editedBody: c.body,
+          subject: c.title,
+          storyId: c.story_id || null,
+        }),
+      })
+      const data = await res.json()
+      setFeedbackResult(prev => ({ ...prev, [c.id]: data.success ? 'success' : 'error' }))
+    } catch {
+      setFeedbackResult(prev => ({ ...prev, [c.id]: 'error' }))
+    } finally {
+      setFeedbackLearning(null)
     }
   }
 
@@ -881,6 +908,21 @@ export default function CalendarPage() {
                                   >
                                     ✏️ 編集
                                   </button>
+                                  {c.type === 'email' && c.original_body && c.original_body !== c.body && !feedbackResult[c.id] && (
+                                    <button
+                                      onClick={() => handleLearnFeedback(c)}
+                                      disabled={feedbackLearning === c.id}
+                                      className="text-xs text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                                    >
+                                      {feedbackLearning === c.id ? '分析中...' : '📚 学習させる'}
+                                    </button>
+                                  )}
+                                  {feedbackResult[c.id] === 'success' && (
+                                    <span className="text-xs text-green-600">✅ 学習済み</span>
+                                  )}
+                                  {feedbackResult[c.id] === 'error' && (
+                                    <span className="text-xs text-red-500">⚠️ 失敗</span>
+                                  )}
                                   <button
                                     onClick={() => handleDoneContent(c.id)}
                                     className="text-xs text-green-500 hover:text-green-700"

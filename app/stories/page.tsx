@@ -200,7 +200,7 @@ export default function StoriesPage() {
         })
           .then(r => r.json())
           .then(data => { if (data.success) setFeedbackLearned(true) })
-          .catch(() => {})
+          .catch(e => console.error('差分分析失敗:', e))
       }
     } catch {
       alert('ストックへの保存に失敗しました')

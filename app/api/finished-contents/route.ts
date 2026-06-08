@@ -61,11 +61,13 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServiceClient()
+    const trimmedBody = body?.trim() || ''
     const { data, error } = await supabase
       .from('finished_contents')
       .insert({
         title: title.trim(),
-        body: body?.trim() || '',
+        body: trimmedBody,
+        original_body: trimmedBody,
         type,
         scheduled_date: scheduled_date || null,
         stock_idea_id: stock_idea_id || null,
