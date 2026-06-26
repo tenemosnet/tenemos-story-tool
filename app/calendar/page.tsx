@@ -232,6 +232,16 @@ export default function CalendarPage() {
 
   // ========== 配信予定操作 ==========
 
+  const handleReturnToStock = async (c: FinishedContent) => {
+    if (!c.body && !confirm('内容が空の状態でストックに戻しますか？')) return
+    await fetch('/api/finished-contents', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: c.id, scheduled_date: null }),
+    })
+    fetchData()
+  }
+
   const handleDeleteContent = async (id: string) => {
     if (!confirm('この配信予定を削除しますか？')) return
     try {
@@ -608,7 +618,9 @@ export default function CalendarPage() {
                           <>
                             <div className="flex items-start justify-between gap-2">
                               <span className="text-sm font-medium text-stone-700 line-clamp-1">{s.title}</span>
-                              <span className="text-xs text-purple-400 shrink-0">🟣 メール</span>
+                              <span className={`text-xs shrink-0 ${s.type === 'line' ? 'text-green-400' : 'text-purple-400'}`}>
+                                {s.type === 'line' ? '🟢 LINE' : '🟣 メール'}
+                              </span>
                             </div>
                             {s.body && (
                               <p className="text-xs text-stone-500 line-clamp-2">{s.body}</p>
@@ -880,6 +892,12 @@ export default function CalendarPage() {
                                   {feedbackResult[c.id] === 'error' && (
                                     <span className="text-xs text-red-500">⚠️ 失敗</span>
                                   )}
+                                  <button
+                                    onClick={() => handleReturnToStock(c)}
+                                    className="text-xs text-stone-500 hover:text-stone-700"
+                                  >
+                                    ↩ ストックに戻す
+                                  </button>
                                   <button
                                     onClick={() => handleDoneContent(c.id)}
                                     className="text-xs text-green-500 hover:text-green-700"
