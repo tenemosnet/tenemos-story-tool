@@ -231,6 +231,26 @@ function GeneratePageContent() {
       setMailResult(prev => ({ ...prev, [tone]: data }))
       setMailEditingBody(prev => ({ ...prev, [tone]: data.body }))
       setMailEditingSubject(prev => ({ ...prev, [tone]: data.subject }))
+
+      // ストックへ自動保存
+      try {
+        const saveRes = await fetch('/api/finished-contents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: data.subject,
+            body: data.body,
+            type: 'email',
+            story_id: result.id || null,
+          }),
+        })
+        if (saveRes.ok) {
+          const savedData = await saveRes.json()
+          setMailAutoSavedId(prev => ({ ...prev, [tone]: savedData.id }))
+        }
+      } catch {
+        // 自動保存失敗は無視（手動保存のフォールバックあり）
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'メール通信生成に失敗しました')
     } finally {
@@ -240,6 +260,8 @@ function GeneratePageContent() {
 
   // メール通信ストック保存成功状態
   const [mailStockSaved, setMailStockSaved] = useState<Partial<Record<ToneKey, boolean>>>({})
+  // 自動保存されたfinished_contentsのID
+  const [mailAutoSavedId, setMailAutoSavedId] = useState<Partial<Record<ToneKey, string>>>({})
 
   const handleSaveMailToStock = async (tone: ToneKey) => {
     const mail = mailResult[tone]
@@ -248,17 +270,33 @@ function GeneratePageContent() {
     try {
       const subject = mailEditingSubject[tone] || mail.subject
       const body = mailEditingBody[tone] || mail.body
-      const res = await fetch('/api/finished-contents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: subject,
-          body: body,
-          type: 'email',
-        }),
-      })
+      const autoSavedId = mailAutoSavedId[tone]
 
-      if (!res.ok) throw new Error('保存失敗')
+      if (autoSavedId) {
+        // 自動保存済み → 編集内容をPATCHで更新
+        const res = await fetch('/api/finished-contents', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: autoSavedId,
+            title: subject,
+            body: body,
+          }),
+        })
+        if (!res.ok) throw new Error('更新失敗')
+      } else {
+        // 自動保存未実行（フォールバック）→ 新規POST
+        const res = await fetch('/api/finished-contents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: subject,
+            body: body,
+            type: 'email',
+          }),
+        })
+        if (!res.ok) throw new Error('保存失敗')
+      }
       setMailStockSaved(prev => ({ ...prev, [tone]: true }))
     } catch {
       setError('ストックへの保存に失敗しました')
@@ -724,24 +762,36 @@ function GeneratePageContent() {
                                   ✓ ストック保存済み → 一覧を見る
                                 </a>
                               ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
-                                  onClick={() => handleSaveMailToStock(tone)}
-                                >
-                                  📝 ストックに保存
-                                </Button>
+                                <>
+                                  {mailAutoSavedId[tone] && (
+                                    <span className="text-xs text-green-600 font-medium flex items-center">✓ 自動保存済み</span>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                                    onClick={() => handleSaveMailToStock(tone)}
+                                  >
+                                    {mailAutoSavedId[tone] ? '📝 編集内容を保存' : '📝 ストックに保存'}
+                                  </Button>
+                                </>
                               )}
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => {
-                                  setMailResult(prev => {
-                                    const next = { ...prev }
-                                    delete next[tone]
-                                    return next
-                                  })
+                                onClick={async () => {
+                                  // 明示保存されていない自動保存レコードを削除
+                                  const autoId = mailAutoSavedId[tone]
+                                  if (autoId && !mailStockSaved[tone]) {
+                                    fetch('/api/finished-contents', {
+                                      method: 'DELETE',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ id: autoId }),
+                                    }).catch(() => {})
+                                  }
+                                  setMailAutoSavedId(prev => { const next = { ...prev }; delete next[tone]; return next })
+                                  setMailStockSaved(prev => { const next = { ...prev }; delete next[tone]; return next })
+                                  setMailResult(prev => { const next = { ...prev }; delete next[tone]; return next })
                                 }}
                               >
                                 🔄 再生成
