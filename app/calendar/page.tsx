@@ -287,7 +287,15 @@ export default function CalendarPage() {
   const handleSaveContent = async () => {
     if (!editModalContent) return
     try {
-      const patchBody: Record<string, unknown> = { id: editModalContent.id, title: editModalTitle, body: editModalBody }
+      let finalTitle = editModalTitle
+      if (editModalContent.type === 'line') {
+        // 配信タイプ変更時、デフォルトタイトルなら自動更新
+        const defaultTitles = ['LINE配信予定', 'LINEセグメント配信予定']
+        if (defaultTitles.includes(editModalTitle)) {
+          finalTitle = editModalLineDeliveryType === 'segment' ? 'LINEセグメント配信予定' : 'LINE配信予定'
+        }
+      }
+      const patchBody: Record<string, unknown> = { id: editModalContent.id, title: finalTitle, body: editModalBody }
       if (editModalContent.type === 'line') {
         patchBody.line_delivery_type = editModalLineDeliveryType
       }
@@ -507,9 +515,8 @@ export default function CalendarPage() {
                             {dayData.contents.slice(0, 2).map(c => {
                               const isSegment = c.type === 'line' && c.line_delivery_type === 'segment'
                               const lineLabel = isSegment ? 'LINE（セ）' : 'LINE'
-                              const defaultTitle = c.type === 'line'
-                                ? (isSegment ? 'LINEセグメント配信予定' : 'LINE配信予定')
-                                : 'メルマガ配信予定'
+                              const defaultTitles = ['LINE配信予定', 'LINEセグメント配信予定', 'メルマガ配信予定']
+                              const isDefaultTitle = defaultTitles.includes(c.title)
                               return (
                                 <div
                                   key={c.id}
@@ -522,7 +529,7 @@ export default function CalendarPage() {
                                   {c.is_done
                                     ? `✓ ${c.type === 'line' ? lineLabel : 'メール'}`
                                     : c.type === 'line' ? `🟢 ${lineLabel}` : '🟣 メール'
-                                  } {c.title !== defaultTitle ? c.title : ''}
+                                  } {!isDefaultTitle ? c.title : ''}
                                 </div>
                               )
                             })}
