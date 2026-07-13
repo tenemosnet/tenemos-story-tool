@@ -33,6 +33,8 @@ type StoryResult = {
   id?: string
   duration_ms?: number
   tokens_used?: number
+  input_tokens?: number
+  output_tokens?: number
 }
 
 export default function GeneratePage() {
@@ -101,7 +103,7 @@ function GeneratePageContent() {
   const [templateSaving, setTemplateSaving] = useState(false)
 
   // メール通信原稿状態
-  const [mailResult, setMailResult] = useState<Partial<Record<ToneKey, { subject: string; body: string; summary: string; duration_ms: number; tokens_used: number }>>>({})
+  const [mailResult, setMailResult] = useState<Partial<Record<ToneKey, { subject: string; body: string; summary: string; duration_ms: number; tokens_used: number; input_tokens?: number; output_tokens?: number }>>>({})
   const [mailGenerating, setMailGenerating] = useState<ToneKey | null>(null)
   const [mailAdditionalNotes, setMailAdditionalNotes] = useState<Partial<Record<ToneKey, string>>>({})
   const [mailEditingBody, setMailEditingBody] = useState<Partial<Record<ToneKey, string>>>({})
@@ -497,7 +499,7 @@ function GeneratePageContent() {
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-lg">{result.title}</CardTitle>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap items-center">
                             <Badge variant="secondary">
                               {TONES[tone].emoji} {result.tone}
                             </Badge>
@@ -506,6 +508,15 @@ function GeneratePageContent() {
                                 {(result.duration_ms / 1000).toFixed(1)}秒
                               </Badge>
                             )}
+                            {result.input_tokens != null && result.output_tokens != null && (() => {
+                              const costUsd = (result.input_tokens! / 1_000_000) * 3.0 + (result.output_tokens! / 1_000_000) * 15.0
+                              const costJpy = Math.ceil(costUsd * 150)
+                              return (
+                                <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px]">
+                                  約{costJpy}円（入{result.input_tokens!.toLocaleString()} / 出{result.output_tokens!.toLocaleString()}）
+                                </Badge>
+                              )
+                            })()}
                           </div>
                         </div>
                       </CardHeader>
@@ -675,9 +686,27 @@ function GeneratePageContent() {
                             📧 メール通信原稿を作成
                           </CardTitle>
                           {mailResult[tone] && (
-                            <Badge variant="outline" className="text-purple-600 border-purple-300">
-                              {((mailResult[tone]?.duration_ms || 0) / 1000).toFixed(1)}秒
-                            </Badge>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge variant="outline" className="text-purple-600 border-purple-300">
+                                {((mailResult[tone]?.duration_ms || 0) / 1000).toFixed(1)}秒
+                              </Badge>
+                              {mailResult[tone]?.input_tokens != null && mailResult[tone]?.output_tokens != null && (() => {
+                                const inp = mailResult[tone]!.input_tokens!
+                                const out = mailResult[tone]!.output_tokens!
+                                const costUsd = (inp / 1_000_000) * 3.0 + (out / 1_000_000) * 15.0
+                                const costJpy = Math.ceil(costUsd * 150)
+                                return (
+                                  <>
+                                    <Badge variant="outline" className="text-stone-500 border-stone-300 text-[10px]">
+                                      入{inp.toLocaleString()} / 出{out.toLocaleString()}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px]">
+                                      約{costJpy}円
+                                    </Badge>
+                                  </>
+                                )
+                              })()}
+                            </div>
                           )}
                         </div>
                         <p className="text-xs text-stone-400 mt-1">

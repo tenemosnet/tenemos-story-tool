@@ -109,6 +109,8 @@ export async function POST(request: NextRequest) {
       id: story?.id,
       duration_ms: duration,
       tokens_used: message.usage.input_tokens + message.usage.output_tokens,
+      input_tokens: message.usage.input_tokens,
+      output_tokens: message.usage.output_tokens,
     })
   } catch (error) {
     console.error('生成エラー:', error)

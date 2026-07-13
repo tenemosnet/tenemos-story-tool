@@ -126,6 +126,8 @@ JSONのみ出力してください。
       summary: result.summary || '',
       duration_ms,
       tokens_used: response.usage.input_tokens + response.usage.output_tokens,
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
     })
   } catch (error) {
     console.error('メール通信生成エラー:', error)
