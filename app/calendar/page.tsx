@@ -18,6 +18,7 @@ type FinishedContent = {
   body: string
   original_body: string | null
   type: 'line' | 'email'
+  line_delivery_type: 'broadcast' | 'segment' | null
   story_id: string | null
   scheduled_date: string | null
   is_done: boolean
@@ -53,6 +54,7 @@ export default function CalendarPage() {
   const [editModalContent, setEditModalContent] = useState<FinishedContent | null>(null)
   const [editModalTitle, setEditModalTitle] = useState('')
   const [editModalBody, setEditModalBody] = useState('')
+  const [editModalLineDeliveryType, setEditModalLineDeliveryType] = useState<'broadcast' | 'segment'>('broadcast')
   const [feedbackLearning, setFeedbackLearning] = useState<string | null>(null)
   const [feedbackResult, setFeedbackResult] = useState<Record<string, 'success' | 'error'>>({})
 
@@ -138,8 +140,9 @@ export default function CalendarPage() {
 
   // ========== ドラッグ＆ドロップ ==========
 
-  const handleDragStart = (e: DragEvent, type: 'line' | 'email') => {
+  const handleDragStart = (e: DragEvent, type: 'line' | 'email', lineDeliveryType?: 'broadcast' | 'segment') => {
     e.dataTransfer.setData('delivery-type', type)
+    if (lineDeliveryType) e.dataTransfer.setData('line-delivery-type', lineDeliveryType)
     e.dataTransfer.effectAllowed = 'copy'
   }
 
@@ -159,7 +162,10 @@ export default function CalendarPage() {
     const type = e.dataTransfer.getData('delivery-type') as 'line' | 'email'
     if (!type) return
 
-    const label = type === 'line' ? 'LINE配信' : 'メルマガ配信'
+    const lineDeliveryType = e.dataTransfer.getData('line-delivery-type') as 'broadcast' | 'segment' | ''
+    const label = type === 'line'
+      ? (lineDeliveryType === 'segment' ? 'LINEセグメント配信' : 'LINE配信')
+      : 'メルマガ配信'
     try {
       const res = await fetch('/api/finished-contents', {
         method: 'POST',
@@ -168,6 +174,7 @@ export default function CalendarPage() {
           title: `${label}予定`,
           body: '',
           type,
+          line_delivery_type: type === 'line' ? (lineDeliveryType || 'broadcast') : null,
           scheduled_date: dateStr,
         }),
       })
@@ -274,15 +281,20 @@ export default function CalendarPage() {
     setEditModalContent(c)
     setEditModalTitle(c.title)
     setEditModalBody(c.body)
+    setEditModalLineDeliveryType(c.line_delivery_type || 'broadcast')
   }
 
   const handleSaveContent = async () => {
     if (!editModalContent) return
     try {
+      const patchBody: Record<string, unknown> = { id: editModalContent.id, title: editModalTitle, body: editModalBody }
+      if (editModalContent.type === 'line') {
+        patchBody.line_delivery_type = editModalLineDeliveryType
+      }
       await fetch('/api/finished-contents', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editModalContent.id, title: editModalTitle, body: editModalBody }),
+        body: JSON.stringify(patchBody),
       })
       setEditModalContent(null)
       fetchData()
@@ -492,18 +504,28 @@ export default function CalendarPage() {
 
                           {/* バッジ */}
                           <div className="mt-0.5 space-y-0.5 overflow-hidden">
-                            {dayData.contents.slice(0, 2).map(c => (
-                              <div
-                                key={c.id}
-                                className={`text-[10px] leading-tight px-1 rounded truncate ${
-                                  c.type === 'line'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-purple-100 text-purple-700'
-                                }`}
-                              >
-                                {c.is_done ? `✓ ${c.type === 'line' ? 'LINE' : 'メール'}` : c.type === 'line' ? '🟢 LINE' : '🟣 メール'} {c.title !== `${c.type === 'line' ? 'LINE配信' : 'メルマガ配信'}予定` ? c.title : ''}
-                              </div>
-                            ))}
+                            {dayData.contents.slice(0, 2).map(c => {
+                              const isSegment = c.type === 'line' && c.line_delivery_type === 'segment'
+                              const lineLabel = isSegment ? 'LINE（セ）' : 'LINE'
+                              const defaultTitle = c.type === 'line'
+                                ? (isSegment ? 'LINEセグメント配信予定' : 'LINE配信予定')
+                                : 'メルマガ配信予定'
+                              return (
+                                <div
+                                  key={c.id}
+                                  className={`text-[10px] leading-tight px-1 rounded truncate ${
+                                    c.type === 'line'
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-purple-100 text-purple-700'
+                                  }`}
+                                >
+                                  {c.is_done
+                                    ? `✓ ${c.type === 'line' ? lineLabel : 'メール'}`
+                                    : c.type === 'line' ? `🟢 ${lineLabel}` : '🟣 メール'
+                                  } {c.title !== defaultTitle ? c.title : ''}
+                                </div>
+                              )
+                            })}
                             {dayData.memos.slice(0, Math.max(0, 2 - dayData.contents.length)).map(m => (
                               <div
                                 key={m.id}
@@ -536,14 +558,22 @@ export default function CalendarPage() {
               {/* ドラッグアイコン + 凡例 */}
               <div className="mt-3 p-3 bg-white rounded-lg border border-stone-200">
                 <p className="text-xs text-stone-400 mb-2">↕ 下のアイコンをカレンダーの日付にドラッグして配信予定を配置</p>
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
                   <div
                     draggable
-                    onDragStart={(e) => handleDragStart(e, 'line')}
+                    onDragStart={(e) => handleDragStart(e, 'line', 'broadcast')}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-dashed border-green-300 bg-green-50 cursor-grab active:cursor-grabbing hover:border-green-400 hover:bg-green-100 transition-colors select-none"
                   >
                     <span className="text-lg">🟢</span>
-                    <span className="text-sm font-medium text-green-700">LINE配信</span>
+                    <span className="text-sm font-medium text-green-700">LINE全体</span>
+                  </div>
+                  <div
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'line', 'segment')}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-dashed border-green-300 bg-green-50 cursor-grab active:cursor-grabbing hover:border-green-400 hover:bg-green-100 transition-colors select-none"
+                  >
+                    <span className="text-lg">🟢</span>
+                    <span className="text-sm font-medium text-green-700">LINE（セ）</span>
                   </div>
                   <div
                     draggable
@@ -860,7 +890,9 @@ export default function CalendarPage() {
                                   <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
                                     c.type === 'line' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
                                   }`}>
-                                    {c.type === 'line' ? 'LINE' : 'メール'}
+                                    {c.type === 'line'
+                                      ? (c.line_delivery_type === 'segment' ? 'セグメント配信' : '全体配信')
+                                      : 'メール'}
                                   </span>
                                   <span className="text-sm font-medium text-stone-700 flex-1">{c.title}</span>
                                 </div>
@@ -924,7 +956,9 @@ export default function CalendarPage() {
                           <div key={c.id} className="p-2 rounded border border-stone-100 bg-stone-50 space-y-1 group">
                             <div className="flex items-center gap-2">
                               <span className="text-xs px-1.5 py-0.5 rounded shrink-0 bg-stone-100 text-stone-400">
-                                ✅ {c.type === 'line' ? 'LINE' : 'メール'}
+                                ✅ {c.type === 'line'
+                                  ? (c.line_delivery_type === 'segment' ? 'LINE（セ）' : 'LINE')
+                                  : 'メール'}
                               </span>
                               <span className="text-sm text-stone-400 line-through flex-1">{c.title}</span>
                             </div>
@@ -1070,6 +1104,31 @@ export default function CalendarPage() {
                 ✕
               </button>
             </div>
+            {editModalContent.type === 'line' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-stone-500">配信タイプ:</span>
+                <button
+                  onClick={() => setEditModalLineDeliveryType('broadcast')}
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                    editModalLineDeliveryType === 'broadcast'
+                      ? 'bg-green-100 text-green-700 border-green-300'
+                      : 'bg-white text-stone-400 border-stone-200 hover:border-green-300'
+                  }`}
+                >
+                  🟢 全体配信
+                </button>
+                <button
+                  onClick={() => setEditModalLineDeliveryType('segment')}
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                    editModalLineDeliveryType === 'segment'
+                      ? 'bg-green-100 text-green-700 border-green-300'
+                      : 'bg-white text-stone-400 border-stone-200 hover:border-green-300'
+                  }`}
+                >
+                  🟢 セグメント配信
+                </button>
+              </div>
+            )}
             <input
               value={editModalTitle}
               onChange={(e) => setEditModalTitle(e.target.value)}

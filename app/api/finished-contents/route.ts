@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 // 配信予定コンテンツ追加
 export async function POST(request: NextRequest) {
   try {
-    const { title, body, type, scheduled_date, stock_idea_id, story_id } = await request.json()
+    const { title, body, type, scheduled_date, stock_idea_id, story_id, line_delivery_type } = await request.json()
 
     if (!title?.trim() || !type) {
       return NextResponse.json({ error: 'タイトルとタイプが必要です' }, { status: 400 })
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
         body: trimmedBody,
         original_body: trimmedBody,
         type,
+        line_delivery_type: type === 'line' ? (line_delivery_type || null) : null,
         scheduled_date: scheduled_date || null,
         stock_idea_id: stock_idea_id || null,
         story_id: story_id || null,
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
 // 配信予定コンテンツ更新
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, title, body, type, scheduled_date, is_done } = await request.json()
+    const { id, title, body, type, scheduled_date, is_done, line_delivery_type } = await request.json()
     if (!id) {
       return NextResponse.json({ error: 'IDが必要です' }, { status: 400 })
     }
@@ -99,6 +100,7 @@ export async function PATCH(request: NextRequest) {
     if (type !== undefined) updates.type = type
     if (scheduled_date !== undefined) updates.scheduled_date = scheduled_date
     if (is_done !== undefined) updates.is_done = is_done
+    if (line_delivery_type !== undefined) updates.line_delivery_type = line_delivery_type
 
     const { data, error } = await supabase
       .from('finished_contents')

@@ -91,6 +91,7 @@ CREATE TABLE finished_contents (
   body TEXT NOT NULL,
   original_body TEXT,
   type TEXT NOT NULL CHECK (type IN ('line', 'email')),
+  line_delivery_type TEXT CHECK (line_delivery_type IS NULL OR line_delivery_type IN ('broadcast', 'segment')),
   stock_idea_id UUID REFERENCES stock_ideas(id),
   story_id UUID REFERENCES stories(id),
   scheduled_date DATE,

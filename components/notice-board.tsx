@@ -17,6 +17,7 @@ type ScheduledContent = {
   title: string
   body: string
   type: 'line' | 'email'
+  line_delivery_type: 'broadcast' | 'segment' | null
   scheduled_date: string
   is_done: boolean
 }
@@ -202,7 +203,9 @@ export default function NoticeBoard() {
               <div key={item.id} className="flex items-center gap-2 p-2 bg-red-100 rounded border border-red-200">
                 <span className="text-xs text-red-500 font-medium shrink-0">{formatDate(item.scheduled_date)}</span>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-red-200 text-red-700 shrink-0">
-                  {item.type === 'line' ? 'LINE' : 'メール'}
+                  {item.type === 'line'
+                    ? (item.line_delivery_type === 'segment' ? 'LINE（セ）' : 'LINE')
+                    : 'メール'}
                 </span>
                 <span className="text-sm text-red-700 flex-1">{item.title}</span>
               </div>
@@ -265,7 +268,9 @@ export default function NoticeBoard() {
                 <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
                   item.type === 'line' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
                 }`}>
-                  {item.type === 'line' ? 'LINE' : 'メール'}
+                  {item.type === 'line'
+                    ? (item.line_delivery_type === 'segment' ? 'LINE（セ）' : 'LINE')
+                    : 'メール'}
                 </span>
                 <span className="text-sm text-stone-700 flex-1">{item.title}</span>
               </div>
