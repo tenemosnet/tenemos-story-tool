@@ -95,9 +95,28 @@ CREATE TABLE finished_contents (
   stock_idea_id UUID REFERENCES stock_ideas(id),
   story_id UUID REFERENCES stories(id),
   scheduled_date DATE,
+  chatboost_delivery_id TEXT,
   is_done BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_finished_contents_chatboost_delivery_id
+  ON finished_contents (chatboost_delivery_id)
+  WHERE chatboost_delivery_id IS NOT NULL;
+
+-- チャットブースト配信統計ログ（将来の分析用）
+CREATE TABLE chatboost_delivery_stats (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  chatboost_delivery_id TEXT NOT NULL UNIQUE,
+  delivery_format TEXT,
+  sent_count INTEGER,
+  opened_count INTEGER,
+  open_rate DECIMAL(5,1),
+  click_count INTEGER,
+  click_rate DECIMAL(5,1),
+  delivered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- タスクメモ（リマインダー）

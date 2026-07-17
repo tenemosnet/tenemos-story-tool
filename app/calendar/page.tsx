@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, DragEvent } from 'react'
+import { useState, useEffect, useCallback, useRef, DragEvent } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -76,6 +76,19 @@ export default function CalendarPage() {
   const [blogStockEditTitle, setBlogStockEditTitle] = useState('')
   const [blogStockEditBody, setBlogStockEditBody] = useState('')
   const [blogStockScheduleDate, setBlogStockScheduleDate] = useState('')
+
+  // CSV取込
+  type ImportCsvResponse = {
+    totalRows: number
+    matched: number
+    created: number
+    skipped: number
+    errors: { rowNumber: number; reason: string }[]
+  }
+  const [csvDragActive, setCsvDragActive] = useState(false)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvImportResult, setCsvImportResult] = useState<ImportCsvResponse | null>(null)
+  const csvFileInputRef = useRef<HTMLInputElement>(null)
 
   const monthStr = `${year}-${String(month).padStart(2, '0')}`
   const todayStr = toDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate())
@@ -185,6 +198,59 @@ export default function CalendarPage() {
     } catch (error) {
       console.error('配信予定登録エラー:', error)
     }
+  }
+
+  // CSV取込ハンドラ
+  const handleCsvDragOver = (e: DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return
+    e.preventDefault()
+    setCsvDragActive(true)
+  }
+
+  const handleCsvDragLeave = () => {
+    setCsvDragActive(false)
+  }
+
+  const processCsvFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      alert('CSVファイルのみ対応しています')
+      return
+    }
+    const formData = new FormData()
+    formData.append('file', file)
+    setCsvImporting(true)
+    try {
+      const res = await fetch('/api/finished-contents/import-csv', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'CSV取込に失敗しました')
+        return
+      }
+      setCsvImportResult(data)
+      fetchData()
+    } catch (error) {
+      console.error('CSV取込エラー:', error)
+      alert('CSV取込に失敗しました')
+    } finally {
+      setCsvImporting(false)
+    }
+  }
+
+  const handleCsvDrop = (e: DragEvent) => {
+    e.preventDefault()
+    setCsvDragActive(false)
+    const file = e.dataTransfer?.files[0]
+    if (file) processCsvFile(file)
+  }
+
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) processCsvFile(file)
+    // 同じファイルを再選択可能にするためリセット
+    e.target.value = ''
   }
 
   // ========== リマインダー操作 ==========
@@ -591,6 +657,39 @@ export default function CalendarPage() {
                     <span className="text-sm font-medium text-purple-700">メルマガ配信</span>
                   </div>
                 </div>
+              </div>
+
+              {/* CSV取込エリア */}
+              <div
+                onDragOver={handleCsvDragOver}
+                onDragLeave={handleCsvDragLeave}
+                onDrop={handleCsvDrop}
+                onClick={() => csvFileInputRef.current?.click()}
+                className={`mt-3 p-4 rounded-lg border-2 border-dashed text-center transition-colors cursor-pointer ${
+                  csvDragActive
+                    ? 'border-blue-400 bg-blue-50'
+                    : 'border-stone-200 bg-stone-50/50 hover:border-blue-300 hover:bg-blue-50/30'
+                }`}
+              >
+                <input
+                  ref={csvFileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCsvFileChange}
+                  className="hidden"
+                />
+                {csvImporting ? (
+                  <p className="text-sm text-blue-600 animate-pulse">取込処理中...</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-stone-500">
+                      📥 チャットブーストの配信履歴CSVをここにドラッグ&ドロップ
+                    </p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      またはクリックしてファイルを選択
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* メール通信ストック */}
@@ -1163,6 +1262,45 @@ export default function CalendarPage() {
                   保存
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV取込結果モーダル */}
+      {csvImportResult && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setCsvImportResult(null) }}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h2 className="text-base font-bold text-stone-800">CSV取込結果</h2>
+            <div className="space-y-2 text-sm text-stone-600">
+              {csvImportResult.matched > 0 && (
+                <p>更新: <strong className="text-blue-600">{csvImportResult.matched}</strong>件（既存の配信予定にタイトルを反映）</p>
+              )}
+              {csvImportResult.created > 0 && (
+                <p>新規作成: <strong className="text-green-600">{csvImportResult.created}</strong>件</p>
+              )}
+              {csvImportResult.skipped > 0 && (
+                <p>スキップ: <strong className="text-stone-500">{csvImportResult.skipped}</strong>件（取込済み）</p>
+              )}
+              {csvImportResult.matched === 0 && csvImportResult.created === 0 && csvImportResult.skipped > 0 && (
+                <p className="text-stone-400 text-xs">全て取込済みです。新しいデータはありません。</p>
+              )}
+              {csvImportResult.errors.length > 0 && (
+                <div className="mt-2 p-3 bg-red-50 rounded-lg text-xs text-red-600 space-y-1 max-h-40 overflow-y-auto">
+                  <p className="font-medium">エラー: {csvImportResult.errors.length}件</p>
+                  {csvImportResult.errors.map((err, i) => (
+                    <p key={i}>行{err.rowNumber}: {err.reason}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setCsvImportResult(null)}>
+                閉じる
+              </Button>
             </div>
           </div>
         </div>
