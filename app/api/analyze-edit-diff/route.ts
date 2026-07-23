@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { callClaude } from '@/lib/claude'
 import { MODELS } from '@/lib/config'
 
-const SYSTEM_PROMPT = `
+const MAIL_SYSTEM_PROMPT = `
 あなたはテネモスネットのメール通信原稿の品質改善アドバイザーです。
 AI生成された原稿と、スタッフが手動で編集した原稿を比較し、「何をどう改善したか」を分析してください。
 
@@ -23,21 +23,55 @@ AIが同じような改善を自動的に行えるよう、具体的かつ再現
 ["改善ポイント1", "改善ポイント2", "改善ポイント3"]
 `.trim()
 
+const BLOG_SYSTEM_PROMPT = `
+あなたはテネモスネットのブログ記事の品質改善アドバイザーです。
+AI生成されたブログ記事と、スタッフが手動で編集した記事を比較し、「何をどう改善したか」を分析してください。
+
+【分析の目的】
+この分析結果は、次回以降のブログ記事AI生成プロンプトに「過去のフィードバック」として注入されます。
+AIが同じような改善を自動的に行えるよう、具体的かつ再現可能な指摘にしてください。
+
+【分析のルール】
+1. 改善ポイントを3〜5個、JSON配列で出力してください
+2. 各ポイントは「何を」「どう変えたか」「なぜその方が良いか」を含めてください
+3. 表現の微調整（句読点のみ等）は無視し、意味のある改善のみ抽出してください
+4. HTML構造の改善（見出しレベル、段落分け、リスト化、改行追加）も重要な改善として抽出してください
+5. WordPress記事としての読みやすさ（囲みブロック、強調表示、余白の取り方）の観点でも評価してください
+6. テネモスの世界観（自然の仕組み、分かち合い、温かみ）の観点でも評価してください
+7. 抽象的な指摘（「文章を改善した」等）は避け、具体的に書いてください
+
+【出力形式】
+以下のJSON配列のみ出力してください。他の文字は不要です：
+["改善ポイント1", "改善ポイント2", "改善ポイント3"]
+`.trim()
+
 export async function POST(request: NextRequest) {
   try {
-    const { originalBody, editedBody, subject, storyId } = await request.json()
+    const {
+      originalBody,
+      editedBody,
+      subject,
+      storyId,
+      contentType = 'mail',
+      blogStockId,
+      articleType,
+    } = await request.json()
 
     if (!originalBody || !editedBody || originalBody === editedBody) {
       return NextResponse.json({ success: false, error: '差分がありません' }, { status: 400 })
     }
 
-    const userPrompt = `
-以下のAI生成原稿と、スタッフ編集後の原稿を比較分析してください。
+    const isBlog = contentType === 'blog'
+    const systemPrompt = isBlog ? BLOG_SYSTEM_PROMPT : MAIL_SYSTEM_PROMPT
+    const contentLabel = isBlog ? 'ブログ記事' : 'メール通信'
 
-【AI生成原稿（編集前）】
+    const userPrompt = `
+以下のAI生成${contentLabel}と、スタッフ編集後の${contentLabel}を比較分析してください。
+
+【AI生成${contentLabel}（編集前）】
 ${originalBody}
 
-【スタッフ編集後の原稿】
+【スタッフ編集後の${contentLabel}】
 ${editedBody}
 
 改善ポイントをJSON配列で出力してください。
@@ -46,7 +80,7 @@ ${editedBody}
     const response = await callClaude({
       model: MODELS.generate,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
 
@@ -62,21 +96,25 @@ ${editedBody}
     const improvements: string[] = JSON.parse(jsonMatch[0])
 
     // knowledge_sources にフィードバックとして保存
-    const content = `【分析タイプ】メール通信の編集差分から抽出\n【改善ポイント】\n${improvements.map((p, i) => `${i + 1}. ${p}`).join('\n')}`
+    const content = `【分析タイプ】${contentLabel}の編集差分から抽出\n【改善ポイント】\n${improvements.map((p, i) => `${i + 1}. ${p}`).join('\n')}`
 
     const supabase = createServiceClient()
     const { error } = await supabase
       .from('knowledge_sources')
       .insert({
         source_type: 'feedback',
-        category: 'feedback',
-        title: `メール通信編集分析: ${(subject || '').slice(0, 30)}`,
+        category: isBlog ? 'blog_feedback' : 'feedback',
+        title: `${contentLabel}編集分析: ${(subject || '').slice(0, 30)}`,
         content,
         metadata: {
-          type: 'edit_diff_analysis',
+          type: isBlog ? 'blog_edit_diff_analysis' : 'edit_diff_analysis',
           story_id: storyId || null,
           improvement_count: improvements.length,
           created_at: new Date().toISOString(),
+          ...(isBlog && {
+            blog_stock_id: blogStockId || null,
+            article_type: articleType || null,
+          }),
         },
       })
 

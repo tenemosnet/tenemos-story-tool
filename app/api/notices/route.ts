@@ -31,7 +31,7 @@ export async function GET() {
     if (scheduled.error) throw scheduled.error
 
     // 過期分（今日より前で未完了）＋ネタ残数＋差分学習フィードバック件数も取得
-    const [overdueMemos, overdueContents, unusedStock, editDiffFeedback] = await Promise.all([
+    const [overdueMemos, overdueContents, unusedStock, editDiffFeedback, blogEditDiffFeedback] = await Promise.all([
       supabase
         .from('task_memos')
         .select('*')
@@ -54,6 +54,10 @@ export async function GET() {
         .select('id', { count: 'exact', head: true })
         .eq('category', 'feedback')
         .contains('metadata', { type: 'edit_diff_analysis' }),
+      supabase
+        .from('knowledge_sources')
+        .select('id', { count: 'exact', head: true })
+        .eq('category', 'blog_feedback'),
     ])
 
     return NextResponse.json({
@@ -63,6 +67,7 @@ export async function GET() {
       overdueContents: overdueContents.data ?? [],
       unusedStockCount: unusedStock.count ?? 0,
       editDiffFeedbackCount: editDiffFeedback.count ?? 0,
+      blogEditDiffFeedbackCount: blogEditDiffFeedback.count ?? 0,
     })
   } catch (error) {
     console.error('お知らせ取得エラー:', error)

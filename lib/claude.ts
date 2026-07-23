@@ -1,5 +1,16 @@
 // Claude API fetch wrapper（Cloudflare Workers互換）
 
+export function getCurrentDatePrefix(): string {
+  const now = new Date()
+  const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
+  const days = ['日', '月', '火', '水', '木', '金', '土']
+  const y = jst.getFullYear()
+  const m = String(jst.getMonth() + 1).padStart(2, '0')
+  const d = String(jst.getDate()).padStart(2, '0')
+  const day = days[jst.getDay()]
+  return `今日の日付: ${y}-${m}-${d}（${day}）JST`
+}
+
 export class ClaudeCreditError extends Error {
   constructor() {
     super('CLAUDE_CREDIT_EMPTY')
@@ -38,7 +49,7 @@ export async function callClaude({
     body: JSON.stringify({
       model,
       max_tokens,
-      system,
+      system: `${getCurrentDatePrefix()}\n\n${system}`,
       messages,
     }),
   })

@@ -38,9 +38,32 @@ async function getKnowledgeSources(): Promise<KnowledgeSource[]> {
 }
 
 /**
- * テンプレートのsystem_prompt + ナレッジソースで完全システムプロンプトを構築
+ * ブログ用フィードバック（差分学習結果）を取得
  */
-function buildFullSystemPrompt(template: OutputTemplate, knowledgeSources: KnowledgeSource[]): string {
+async function getBlogFeedback(): Promise<KnowledgeSource[]> {
+  try {
+    const supabase = createServiceClient()
+    const { data } = await supabase
+      .from('knowledge_sources')
+      .select('title, content, category')
+      .eq('category', 'blog_feedback')
+      .order('collected_at', { ascending: false })
+      .limit(10)
+    return data ?? []
+  } catch (error) {
+    console.error('ブログフィードバック取得エラー:', error)
+    return []
+  }
+}
+
+/**
+ * テンプレートのsystem_prompt + ナレッジソース + ブログフィードバックで完全システムプロンプトを構築
+ */
+function buildFullSystemPrompt(
+  template: OutputTemplate,
+  knowledgeSources: KnowledgeSource[],
+  blogFeedback?: KnowledgeSource[]
+): string {
   const brandKnowledge = knowledgeSources.filter(k => k.category === 'brand')
   const toneKnowledge = knowledgeSources.filter(k => k.category === 'tone')
   const sampleKnowledge = knowledgeSources.filter(k => k.category === 'sample' || k.category === null)
@@ -63,6 +86,12 @@ function buildFullSystemPrompt(template: OutputTemplate, knowledgeSources: Knowl
       .slice(0, 5)
       .map(k => `タイトル: ${k.title ?? ''}\n${k.content.slice(0, 400)}`)
       .join('\n---\n')
+  }
+
+  if (blogFeedback && blogFeedback.length > 0) {
+    prompt += '\n\n# 過去のフィードバック（スタッフ編集から学習）\n'
+    prompt += '以下はスタッフがブログ記事を編集した際の改善ポイントです。同じ傾向の指摘は重点的に反映してください。\n'
+    prompt += blogFeedback.map(k => k.content.slice(0, 500)).join('\n---\n')
   }
 
   return prompt
@@ -157,11 +186,14 @@ export async function generateBlogArticle(params: {
     .single()
   if (templateError || !template) throw new Error('テンプレートが見つかりません')
 
-  // ナレッジソース取得
-  const knowledgeSources = await getKnowledgeSources()
+  // ナレッジソース + ブログフィードバック取得
+  const [knowledgeSources, blogFeedback] = await Promise.all([
+    getKnowledgeSources(),
+    getBlogFeedback(),
+  ])
 
   // プロンプト構築
-  const fullPrompt = buildFullSystemPrompt(template as OutputTemplate, knowledgeSources)
+  const fullPrompt = buildFullSystemPrompt(template as OutputTemplate, knowledgeSources, blogFeedback)
   const userMessage = buildUserMessage(
     story as Story,
     params.userRequest,

@@ -160,6 +160,18 @@ export default function BlogStockDetailPage({
   const [showWpForm, setShowWpForm] = useState(false)
   const [wpSlug, setWpSlug] = useState('')
 
+  // 本文編集モード
+  const [editMode, setEditMode] = useState(false)
+  const [editingBody, setEditingBody] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // 差分学習
+  const [feedbackLearned, setFeedbackLearned] = useState(false)
+
+  // WP取り込み
+  const [fetchingWp, setFetchingWp] = useState(false)
+  const [wpFetchMessage, setWpFetchMessage] = useState<string | null>(null)
+
   const fetchData = useCallback(async () => {
     try {
       const [stockRes, historyRes] = await Promise.all([
@@ -250,6 +262,83 @@ export default function BlogStockDetailPage({
     }
   }
 
+  // 本文編集の保存（差分学習トリガー）
+  const handleSaveEdit = async () => {
+    if (!stock) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/blog-stocks/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: editingBody }),
+      })
+      if (!res.ok) throw new Error('保存に失敗しました')
+
+      // ローカル state を更新
+      setStock({ ...stock, body: editingBody })
+      setEditMode(false)
+
+      // AI生成版との差分がある場合のみ差分学習を実行（fire-and-forget）
+      const originalBody = histories[0]?.generated_body
+      if (originalBody && originalBody !== editingBody) {
+        fetch('/api/analyze-edit-diff', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            originalBody,
+            editedBody: editingBody,
+            subject: stock.title,
+            storyId: stock.story_id ?? null,
+            contentType: 'blog',
+            blogStockId: params.id,
+            articleType: stock.article_type ?? null,
+          }),
+        })
+          .then(r => r.json())
+          .then(data => { if (data.success) setFeedbackLearned(true) })
+          .catch(e => console.error('差分分析失敗:', e))
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '保存に失敗しました')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // WordPressの編集内容を取り込む
+  const handleFetchFromWp = async () => {
+    if (!stock) return
+
+    // 編集中で未保存の変更がある場合は警告
+    if (editMode && editingBody !== stock.body) {
+      if (!confirm('未保存の編集があります。WordPressの内容で上書きされますが、よろしいですか？')) return
+    }
+
+    setFetchingWp(true)
+    setWpFetchMessage(null)
+    setFeedbackLearned(false)
+    try {
+      const res = await fetch(`/api/blog-stocks/${params.id}/fetch-wp`, {
+        method: 'POST',
+      })
+      const data = await res.json() as { success?: boolean; updated?: boolean; message?: string; error?: string }
+      if (!res.ok) throw new Error(data.error ?? 'WordPressからの取得に失敗しました')
+
+      if (data.updated) {
+        setFeedbackLearned(!!data.message?.includes('学習'))
+        setWpFetchMessage(data.message ?? 'WordPressの内容を取り込みました')
+        setEditMode(false)
+        await fetchData()
+      } else {
+        setWpFetchMessage(data.message ?? 'WordPressの内容は最新版と同じです')
+      }
+    } catch (err) {
+      setWpFetchMessage(err instanceof Error ? err.message : 'WordPressからの取得に失敗しました')
+    } finally {
+      setFetchingWp(false)
+    }
+  }
+
   const handleRegenerate = async () => {
     if (!regenTemplateId) {
       setRegenError('テンプレートを選択してください')
@@ -259,6 +348,17 @@ export default function BlogStockDetailPage({
     if (!latestHistory) {
       setRegenError('生成履歴が見つかりません')
       return
+    }
+
+    // 未保存の編集がある場合
+    if (editMode && editingBody !== stock?.body) {
+      setRegenError('未保存の変更があります。保存してから再生成してください。')
+      return
+    }
+
+    // 保存済みだがAI生成版と異なる場合
+    if (stock && latestHistory && stock.body !== latestHistory.generated_body) {
+      if (!confirm('本文が編集されています。再生成すると編集内容は上書きされますが、よろしいですか？')) return
     }
 
     setRegenerating(true)
@@ -280,6 +380,8 @@ export default function BlogStockDetailPage({
       }
       // 成功：画面を再読み込み
       setRegenRequest('')
+      setEditMode(false)
+      setFeedbackLearned(false)
       await fetchData()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
@@ -306,6 +408,9 @@ export default function BlogStockDetailPage({
   }
 
   const latestHistory = histories[0]
+  const textCharCount = editMode
+    ? editingBody.replace(/<[^>]*>/g, '').length
+    : 0
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -332,21 +437,90 @@ export default function BlogStockDetailPage({
           )}
         </div>
 
-        {/* 記事本文（HTMLレンダリング） */}
-        {/* XSS注意：自社AI生成HTMLのみを表示する前提で dangerouslySetInnerHTML を使用 */}
-        <Card>
-          <CardContent className="py-5">
-            <div
-              className="prose prose-stone prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: stock.body }}
-            />
-          </CardContent>
-        </Card>
+        {/* 記事本文 */}
+        {editMode ? (
+          <div className="space-y-4">
+            {/* HTML編集エリア */}
+            <Card>
+              <CardContent className="py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-stone-700">✏️ HTML編集</p>
+                  <span className="text-xs text-stone-400">
+                    文字数（タグ除く）: {textCharCount.toLocaleString()}
+                  </span>
+                </div>
+                <textarea
+                  value={editingBody}
+                  onChange={e => setEditingBody(e.target.value)}
+                  rows={20}
+                  className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 font-mono placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400 resize-y"
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={saving}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {saving ? '保存中...' : '💾 保存（学習）'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditMode(false)}
+                    disabled={saving}
+                  >
+                    キャンセル
+                  </Button>
+                  {feedbackLearned && (
+                    <span className="inline-flex items-center text-xs font-medium text-green-600">
+                      ✨ 改善ポイントを学習しました
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* プレビュー */}
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-sm font-medium text-stone-700 mb-3">📄 プレビュー</p>
+                <div
+                  className="prose prose-stone prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: editingBody }}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <>
+            {/* 通常表示（HTMLレンダリング） */}
+            {/* XSS注意：自社AI生成HTMLのみを表示する前提で dangerouslySetInnerHTML を使用 */}
+            <Card>
+              <CardContent className="py-5">
+                <div
+                  className="prose prose-stone prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: stock.body }}
+                />
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {/* アクションボタン */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <Button variant="outline" onClick={handleCopy}>
             {copied ? '✓ コピーしました' : '📋 HTMLをコピー'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditMode(true)
+              setEditingBody(stock.body)
+              setFeedbackLearned(false)
+              setWpFetchMessage(null)
+            }}
+            disabled={editMode}
+          >
+            ✏️ 本文を編集
           </Button>
           <Button
             variant="outline"
@@ -355,6 +529,11 @@ export default function BlogStockDetailPage({
           >
             🗑 削除
           </Button>
+          {!editMode && feedbackLearned && (
+            <span className="inline-flex items-center text-xs font-medium text-green-600">
+              ✨ 改善ポイントを学習しました
+            </span>
+          )}
         </div>
 
         {/* WordPress 投稿エリア */}
@@ -377,7 +556,26 @@ export default function BlogStockDetailPage({
                 >
                   🔄 再投稿（更新）
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleFetchFromWp}
+                  disabled={fetchingWp}
+                >
+                  {fetchingWp ? '取り込み中...' : '📥 WordPressの編集内容を取り込む'}
+                </Button>
               </div>
+              {wpFetchMessage && (
+                <p className={`text-xs rounded-lg px-3 py-2 ${
+                  wpFetchMessage.includes('失敗') || wpFetchMessage.includes('エラー')
+                    ? 'text-red-600 bg-red-50'
+                    : feedbackLearned
+                      ? 'text-green-600 bg-green-50'
+                      : 'text-stone-600 bg-stone-50'
+                }`}>
+                  {feedbackLearned ? '✨ ' : '✓ '}{wpFetchMessage}
+                </p>
+              )}
             </div>
           ) : (
             <Button

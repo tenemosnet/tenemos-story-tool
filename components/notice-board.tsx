@@ -29,6 +29,7 @@ type NoticeData = {
   overdueContents: ScheduledContent[]
   unusedStockCount: number
   editDiffFeedbackCount: number
+  blogEditDiffFeedbackCount: number
 }
 
 function formatDate(dateStr: string) {
@@ -129,10 +130,12 @@ export default function NoticeBoard() {
   const hasStockWarning = unusedStockCount <= 2
   const editDiffFeedbackCount = data?.editDiffFeedbackCount ?? 0
   const hasFeedbackWarning = editDiffFeedbackCount >= 10
-  const isEmpty = !hasOverdue && !hasUpcoming && !hasStockWarning && !hasFeedbackWarning
+  const blogEditDiffFeedbackCount = data?.blogEditDiffFeedbackCount ?? 0
+  const hasBlogFeedbackWarning = blogEditDiffFeedbackCount >= 10
+  const isEmpty = !hasOverdue && !hasUpcoming && !hasStockWarning && !hasFeedbackWarning && !hasBlogFeedbackWarning
 
   return (
-    <Card className={`${hasOverdue || hasStockWarning ? 'border-red-300 bg-red-50/30' : hasFeedbackWarning ? 'border-amber-300 bg-amber-50/30' : 'border-blue-200 bg-blue-50/30'}`}>
+    <Card className={`${hasOverdue || hasStockWarning ? 'border-red-300 bg-red-50/30' : (hasFeedbackWarning || hasBlogFeedbackWarning) ? 'border-amber-300 bg-amber-50/30' : 'border-blue-200 bg-blue-50/30'}`}>
       <CardContent className="pt-5 pb-4 space-y-3">
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
@@ -230,7 +233,7 @@ export default function NoticeBoard() {
           </div>
         )}
 
-        {/* 差分学習フィードバック件数警告 */}
+        {/* 差分学習フィードバック件数警告（メール通信） */}
         {hasFeedbackWarning && (
           <div className="space-y-1.5">
             <a
@@ -239,7 +242,23 @@ export default function NoticeBoard() {
             >
               <span className="text-sm shrink-0">⚠</span>
               <span className="text-sm text-amber-800 flex-1">
-                学習フィードバックが{editDiffFeedbackCount}件に達しました — 棚卸し（統合・整理）を検討してください
+                メール通信の学習フィードバックが{editDiffFeedbackCount}件に達しました — 棚卸し（統合・整理）を検討してください
+              </span>
+              <span className="text-xs text-amber-500 shrink-0">→ 確認</span>
+            </a>
+          </div>
+        )}
+
+        {/* 差分学習フィードバック件数警告（ブログ記事） */}
+        {hasBlogFeedbackWarning && (
+          <div className="space-y-1.5">
+            <a
+              href="/knowledge"
+              className="flex items-center gap-2 p-2 bg-amber-100 rounded border border-amber-200 hover:bg-amber-150 transition-colors"
+            >
+              <span className="text-sm shrink-0">⚠</span>
+              <span className="text-sm text-amber-800 flex-1">
+                ブログ記事の学習フィードバックが{blogEditDiffFeedbackCount}件に達しました — 棚卸し（統合・整理）を検討してください
               </span>
               <span className="text-xs text-amber-500 shrink-0">→ 確認</span>
             </a>
